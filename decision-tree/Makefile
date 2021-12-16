@@ -1,2 +1,2 @@
 DecisionTree: decision-tree.cc
-	g++ decision-tree.cc -std=c++11 -o DecisionTree
+	g++ decision-tree.cc -std=c++17 -o DecisionTree
