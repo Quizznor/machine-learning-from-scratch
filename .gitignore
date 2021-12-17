@@ -1,2 +1,6 @@
 *.out
 .vscode/
+
+# decision tree
+decision-tree/decision-tree
+decision-tree/seals_*

@@ -7,14 +7,15 @@
 
 typedef std::vector<double> drow, dcolumn;
 typedef std::vector<std::vector<double>> dmatrix;
-typedef std::tuple<int,double,double,dmatrix*,dmatrix*> dcut;
+typedef std::tuple<int,double,double,dmatrix,dmatrix> dcut;
 
 // for debugging purposes
 void printMatrix(dmatrix dataset) {
+
     int n_rows = dataset.size(), n_cols = dataset[0].size();
 
     std::cout << "\nMATRIX SHAPE: (" << n_rows << "," << n_cols << ")" << std::endl;
-
+    
     for (int i = 0; i < n_rows; i++) {
         if (i==0 || i==1 || i==n_cols-2 || i==n_cols-1) {
             for (int j = 0; j < n_cols; j++) {
@@ -101,6 +102,16 @@ class DecisionTree {
         // Workflow here: calculate best split across whole dataset once
         // and create root node with children stemming from recursion
 
+        dcut best_split = calculateBestSplit(&training_set);
+
+        int feature = std::get<0>(best_split);
+        double threshold = std::get<1>(best_split);
+        double info_gain = std::get<2>(best_split);
+        dmatrix child_left = std::get<3>(best_split);
+        dmatrix child_right = std::get<4>(best_split);
+
+        printMatrix(child_left);
+        printMatrix(child_right);
 
         Node TestNode(0,0);
         return TestNode;
@@ -109,7 +120,7 @@ class DecisionTree {
   private:
 
     // iteratively return optimized nodes
-    Node buildTree(dmatrix* dataset_address) {
+    Node buildTree(dmatrix* dataset) {
 
         // Workflow here: Check if stopping conditions are met, if not,
         // calculate best split, raise node with call to itself to create
@@ -133,29 +144,58 @@ class DecisionTree {
         // calculate information gain for each one and return the 
         // one that yields the highest information gain
 
-        // placeholder values
+        // initial placeholder values
         int best_feature = 0;
-        double best_threshold = 0., best_info = 0.;
-        dmatrix data_left = {{1,2,3},{4,5,6}};
-        dmatrix data_right = {{1,2,3},{4,5,6}};
+        double best_threshold = 0;
+        double best_info = -1e10;
+        dmatrix data_left, data_right;
+        dcolumn thresholds, thresholds_reduced;
+        std::vector<dmatrix> split;
 
-        dcut best_cut = std::make_tuple(best_feature, best_threshold, best_info, &data_left, &data_right);
+        for (int i = 0; i < n_features; i++) {
+
+            std::cout << "\rCalculating best split " << i << "/" << n_features-1;
+
+            // get all elements in feature column (minus 10 lowest and highest value)
+            for (const auto &row : *dataset) {thresholds.push_back(row[i]);}
+
+            std::sort(thresholds.begin(),thresholds.end(),std::greater<double>{});
+            thresholds_reduced = std::vector(&thresholds[11],&thresholds[thresholds.size()-11]);
+
+            // iterate over all feature values
+            for (const auto &threshold : thresholds_reduced) {
+                split = splitDataset(dataset, i, threshold);
+
+                // calculate information gain and update best cut parameters accordingly
+
+                split.clear();
+            }
+
+            thresholds_reduced.clear(), thresholds.clear();
+        }
+
+        // some more placeholder values
+        data_left = {{1,2,3},{4,5,6}};
+        data_right = {{1,2,3},{4,5,6}};
+
+        dcut best_cut = std::make_tuple(best_feature, best_threshold, best_info, data_left, data_right);
 
         return best_cut;
     }
 
     // split a 2D dataset into 2 subchunks based on a feature i and cut threshold x
-    std::vector<dmatrix*> splitDataset(dmatrix* dataset, int i, double x) {
- 
+    std::vector<dmatrix> splitDataset(dmatrix* dataset, int i, double x) {
+         
         dmatrix child_left, child_right;
 
         std::copy_if(dataset->begin(),dataset->end(),std::back_inserter(child_left),[i,x](drow M){return M[i] <= x;});
         std::copy_if(dataset->begin(),dataset->end(),std::back_inserter(child_right),[i,x](drow M){return M[i] > x;});
 
-        std::vector<dmatrix*> split_result = {&child_left,&child_right};
+        std::vector<dmatrix> split_result = {child_left,child_right};
 
         return split_result;      
     }
+
 };
 
 int main() {
