@@ -70,14 +70,17 @@ class DecisionTree {
   public:
 
     // have to hardcode this at compile time the way it is now =(
-    const unsigned long n_train = 1207, n_test = 213, n_features = 129;
+    const unsigned long n_train = 1207, n_test = 213;
+    const unsigned long n_features = 129;
+    int max_tree_depth, minimum_samples;
 
     dmatrix training_set {n_train, drow (n_features) };
     dmatrix testing_set {n_test, drow (n_features) };
 
-    DecisionTree(int depth) {
+    DecisionTree(int depth, int samples) {
 
-        int maxTreeDepth = depth;
+        max_tree_depth = depth;
+        minimum_samples = samples;
 
         double data_train[n_train][n_features]{
             #include "seals_train_c.csv"
@@ -109,9 +112,6 @@ class DecisionTree {
         double info_gain = std::get<2>(best_split);
         dmatrix child_left = std::get<3>(best_split);
         dmatrix child_right = std::get<4>(best_split);
-
-        printMatrix(child_left);
-        printMatrix(child_right);
 
         Node TestNode(0,0);
         return TestNode;
@@ -146,39 +146,80 @@ class DecisionTree {
 
         // initial placeholder values
         int best_feature = 0;
-        double best_threshold = 0;
+        double current_info;
         double best_info = -1e10;
-        dmatrix data_left, data_right;
-        dcolumn thresholds, thresholds_reduced;
-        std::vector<dmatrix> split;
+        double best_threshold = 0;
+        int skip = dataset->size()/100;
+        double weight_left, weight_right;
+        int left_ones, left_zeros, score_left;
+        int right_ones, right_zeros, score_right;
+        int parent_ones, parent_zeros, score_parent;
 
-        for (int i = 0; i < n_features; i++) {
+        dmatrix data_left, data_right;
+        dmatrix best_data_left, best_data_right;
+        dcolumn thresholds, thresholds_reduced;
+        std::vector<dmatrix> split_by_feature;
+        std::vector<dmatrix> left_sorted_by_class;
+        std::vector<dmatrix> right_sorted_by_class;
+        std::vector<dmatrix> parent_sorted_by_class;
+
+        // iterate over all features (i=0 is the label!)
+        for (int i = 1; i < n_features; i++) {
 
             std::cout << "\rCalculating best split " << i << "/" << n_features-1;
-
-            // get all elements in feature column (minus 10 lowest and highest value)
-            for (const auto &row : *dataset) {thresholds.push_back(row[i]);}
+            
+            // extract ~10% of the dataset to generate possible thresholds (and delete highest/lowest value)
+            for (auto row = dataset->begin(); row < dataset->end(); row+=skip) {thresholds.push_back((*row)[i]);}
+            // ^^ maybe something linspace-esque is quicker (but less accurate)?
 
             std::sort(thresholds.begin(),thresholds.end(),std::greater<double>{});
-            thresholds_reduced = std::vector(&thresholds[11],&thresholds[thresholds.size()-11]);
-
+            thresholds_reduced = std::vector(&thresholds[1],&thresholds[thresholds.size()-1]);
+            
             // iterate over all feature values
-            for (const auto &threshold : thresholds_reduced) {
-                split = splitDataset(dataset, i, threshold);
+            for (const auto &x : thresholds_reduced) {
+                split_by_feature = splitDataset(dataset, i, x);
 
                 // calculate information gain and update best cut parameters accordingly
+                data_left = split_by_feature[0], data_right = split_by_feature[1];
+                left_sorted_by_class = splitDataset(&data_left,0,0.5);
+                right_sorted_by_class = splitDataset(&data_right,0,0.5);
+                parent_sorted_by_class = splitDataset(dataset,0,0.5);
 
-                split.clear();
+                weight_left = data_left.size()/dataset->size(), weight_right = data_right.size()/dataset->size();
+
+                left_ones = left_sorted_by_class[1].size(), left_zeros = left_sorted_by_class[0].size();
+                right_ones = right_sorted_by_class[1].size(), right_zeros = right_sorted_by_class[0].size();
+                parent_ones = parent_sorted_by_class[1].size(), parent_zeros = parent_sorted_by_class[0].size();
+
+                score_left = 1 - (pow(left_ones/data_left.size(),2) + pow(left_zeros/data_left.size(),2));
+                score_right = 1 - (pow(right_ones/data_right.size(),2) + pow(left_zeros/data_right.size(),2));
+                score_parent = pow(left_ones/data_left.size(),2) + pow(left_zeros/data_left.size(),2);
+
+                current_info = score_parent - ( weight_left * score_left + weight_right - score_right );
+
+                if (current_info > best_info) {
+                    best_data_right = data_right;
+                    best_data_left = data_left;
+                    best_info = current_info;
+                    best_threshold = x;
+                    best_feature = i;
+                }
+
+                // clean up after each threshold
+                data_right.clear(), data_left.clear();
+                split_by_feature.clear();
             }
 
+            // clean up after each feature
             thresholds_reduced.clear(), thresholds.clear();
         }
 
-        // some more placeholder values
-        data_left = {{1,2,3},{4,5,6}};
-        data_right = {{1,2,3},{4,5,6}};
+        dcut best_cut = std::make_tuple(best_feature, best_threshold, best_info, best_data_left, best_data_right);
 
-        dcut best_cut = std::make_tuple(best_feature, best_threshold, best_info, data_left, data_right);
+        printf("\nBest split found @ (feature, threshold, info) = (%i, %f, %f)\n",best_feature, best_threshold, best_info);
+
+        printMatrix(best_data_left);
+        printMatrix(best_data_right);
 
         return best_cut;
     }
@@ -200,7 +241,7 @@ class DecisionTree {
 
 int main() {
 
-  DecisionTree PupClassifier(3);
+  DecisionTree PupClassifier(3,10);
   PupClassifier.buildTree();
 
   return 0;
