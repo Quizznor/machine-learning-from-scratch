@@ -7,7 +7,7 @@
 
 typedef std::vector<double> drow, dcolumn;
 typedef std::vector<std::vector<double>> dmatrix;
-typedef std::tuple<int,double,double,dmatrix,dmatrix> dcut;
+typedef std::tuple<int,double,double> dcut;
 
 // for debugging purposes
 void printMatrix(dmatrix dataset) {
@@ -110,8 +110,6 @@ class DecisionTree {
         int feature = std::get<0>(best_split);
         double threshold = std::get<1>(best_split);
         double info_gain = std::get<2>(best_split);
-        dmatrix child_left = std::get<3>(best_split);
-        dmatrix child_right = std::get<4>(best_split);
 
         Node TestNode(0,0);
         return TestNode;
@@ -138,91 +136,169 @@ class DecisionTree {
         return TestNode;
     }
 
+    // something's not quite yet working with this code, but it's faster!
     dcut calculateBestSplit(dmatrix* dataset) {
 
-        // Workflow here: Iterate over all features and thresholds
-        // calculate information gain for each one and return the 
-        // one that yields the highest information gain
-
-        // initial placeholder values
         int best_feature = 0;
-        double current_info;
-        double best_info = -1e10;
         double best_threshold = 0;
-        int skip = dataset->size()/100;
-        double weight_left, weight_right;
-        int left_ones, left_zeros, score_left;
-        int right_ones, right_zeros, score_right;
-        int parent_ones, parent_zeros, score_parent;
+        double best_information = -1e10;
+        double purity_left, purity_right;
 
-        dmatrix data_left, data_right;
-        dmatrix best_data_left, best_data_right;
-        dcolumn thresholds, thresholds_reduced;
-        std::vector<dmatrix> split_by_feature;
-        std::vector<dmatrix> left_sorted_by_class;
-        std::vector<dmatrix> right_sorted_by_class;
-        std::vector<dmatrix> parent_sorted_by_class;
+        dcolumn labels = extractColumn(dataset, 0);
+        dcolumn labels_left, labels_right;
 
-        // iterate over all features (i=0 is the label!)
+        int len_parent = dataset->size();
+        int parent_zeros = std::count(labels.begin(),labels.end(),0);
+        int parent_ones = std::count(labels.begin(),labels.end(),1);
+
         for (int i = 1; i < n_features; i++) {
 
             std::cout << "\rCalculating best split " << i << "/" << n_features-1;
-            
-            // extract ~10% of the dataset to generate possible thresholds (and delete highest/lowest value)
-            for (auto row = dataset->begin(); row < dataset->end(); row+=skip) {thresholds.push_back((*row)[i]);}
-            // ^^ maybe something linspace-esque is quicker (but less accurate)?
 
-            std::sort(thresholds.begin(),thresholds.end(),std::greater<double>{});
-            thresholds_reduced = std::vector(&thresholds[1],&thresholds[thresholds.size()-1]);
-            
-            // iterate over all feature values
-            for (const auto &x : thresholds_reduced) {
-                split_by_feature = splitDataset(dataset, i, x);
+            // all possible threshold values
+            auto features = extractColumn(dataset, i);
 
-                // calculate information gain and update best cut parameters accordingly
-                data_left = split_by_feature[0], data_right = split_by_feature[1];
-                left_sorted_by_class = splitDataset(&data_left,0,0.5);
-                right_sorted_by_class = splitDataset(&data_right,0,0.5);
-                parent_sorted_by_class = splitDataset(dataset,0,0.5);
+            // iterate over all threshold values
+            for (int j = 0; j < dataset->size(); j++) {
+                for (const auto &row : *dataset) {
 
-                weight_left = data_left.size()/dataset->size(), weight_right = data_right.size()/dataset->size();
-
-                left_ones = left_sorted_by_class[1].size(), left_zeros = left_sorted_by_class[0].size();
-                right_ones = right_sorted_by_class[1].size(), right_zeros = right_sorted_by_class[0].size();
-                parent_ones = parent_sorted_by_class[1].size(), parent_zeros = parent_sorted_by_class[0].size();
-
-                score_left = 1 - (pow(left_ones/data_left.size(),2) + pow(left_zeros/data_left.size(),2));
-                score_right = 1 - (pow(right_ones/data_right.size(),2) + pow(left_zeros/data_right.size(),2));
-                score_parent = pow(left_ones/data_left.size(),2) + pow(left_zeros/data_left.size(),2);
-
-                current_info = score_parent - ( weight_left * score_left + weight_right - score_right );
-
-                if (current_info > best_info) {
-                    best_data_right = data_right;
-                    best_data_left = data_left;
-                    best_info = current_info;
-                    best_threshold = x;
-                    best_feature = i;
+                    // split data into left and right child based on threshold
+                    if (row[i] <= features[j]) {labels_left.push_back(labels[i]);}          // value is smaller than threshold, go left
+                    else if (row[i] > features[j]) {labels_right.push_back(labels[i]);}     // value is larger than threshold, go right
                 }
 
-                // clean up after each threshold
-                data_right.clear(), data_left.clear();
-                split_by_feature.clear();
-            }
+                int len_left = labels_left.size();
+                int len_right = labels_right.size();
 
-            // clean up after each feature
-            thresholds_reduced.clear(), thresholds.clear();
+                // ensure children aren't empty
+                if (len_left==0 || len_right==0) {continue;}
+
+                // evaluate information gain from cutting at threshold
+                int left_zeros = std::count(labels_left.begin(),labels_left.end(),0);
+                int left_ones = std::count(labels_left.begin(),labels_left.end(),1);
+                int right_zeros = std::count(labels_right.begin(),labels_right.end(),0);
+                int right_ones = std::count(labels_right.begin(),labels_right.end(),1);
+
+                double score_left = 1 - (pow(left_ones/len_left,2) + pow(left_zeros/len_left,2));
+                double score_right = 1 - (pow(right_ones/len_right,2) + pow(right_zeros/len_right,2));
+                double score_parent = 1 - (pow(parent_ones/len_parent,2) + pow(parent_zeros/len_parent,2));
+
+                double current_info = score_parent - ( len_left/len_parent * score_left + len_right/len_parent * score_right );
+
+                // update best cut parameters if information gain is larger than previous
+                if (current_info > best_information) {
+                    best_information = current_info;
+                    best_threshold = features[j];
+                    best_feature = i;
+
+                    // calculate purity for fun
+                    purity_left = std::max(left_zeros,left_ones)/len_left * 100;
+                    purity_right = std::max(right_zeros,right_ones)/len_right * 100;
+                }               
+
+                labels_left.clear(), labels_right.clear();
+            }
         }
 
-        dcut best_cut = std::make_tuple(best_feature, best_threshold, best_info, best_data_left, best_data_right);
+        auto best_split = splitDataset(dataset,best_feature, best_threshold);
+        dmatrix child_left = best_split[0], child_right = best_split[1];
 
-        printf("\nBest split found @ (feature, threshold, info) = (%i, %f, %f)\n",best_feature, best_threshold, best_info);
+        dcut best_cut = std::make_tuple(best_feature, best_threshold, best_information);
 
-        printMatrix(best_data_left);
-        printMatrix(best_data_right);
+        printf("\nBest split found @ (feature, threshold, info) = (%i, %f, %f)\n",best_feature, best_threshold, best_information);
+        printf("Remaining dataset purities: %.2f\% (left) %.2f\% (right)\n", purity_left, purity_right);
+
+        printMatrix(child_left);
+        printMatrix(child_right);
 
         return best_cut;
     }
+
+    // dcut calculateBestSplit(dmatrix* dataset) {
+
+    //     // Workflow here: Iterate over all features and thresholds
+    //     // calculate information gain for each one and return the 
+    //     // one that yields the highest information gain
+
+    //     // initial placeholder values
+    //     int best_feature = 0;
+    //     double current_info;
+    //     double best_info = -1e10;
+    //     double best_threshold = 0;
+    //     double weight_left, weight_right;
+    //     int left_ones, left_zeros, score_left;
+    //     int right_ones, right_zeros, score_right;
+    //     int parent_ones, parent_zeros, score_parent;
+
+    //     dmatrix data_left, data_right;
+    //     dmatrix best_data_left, best_data_right;
+    //     dcolumn thresholds, thresholds_reduced;
+    //     std::vector<dmatrix> split_by_feature;
+    //     std::vector<dmatrix> left_sorted_by_class;
+    //     std::vector<dmatrix> right_sorted_by_class;
+    //     std::vector<dmatrix> parent_sorted_by_class;
+
+    //     // iterate over all features (i=0 is the label!)
+    //     for (int i = 1; i < n_features; i++) {
+
+    //         std::cout << "\rCalculating best split " << i << "/" << n_features-1;
+            
+    //         // extract ~10% of the dataset to generate possible thresholds (and delete highest/lowest value)
+    //         for (auto row = dataset->begin(); row < dataset->end(); row+=10) {thresholds.push_back((*row)[i]);}
+    //         // ^^ maybe something linspace-esque is quicker (but less accurate)?
+    //         // or just extract two columns? The only ones that really matter
+
+    //         std::sort(thresholds.begin(),thresholds.end(),std::greater<double>{});
+    //         thresholds_reduced = std::vector(&thresholds[1],&thresholds[thresholds.size()-1]);
+            
+    //         // iterate over all feature values
+    //         for (const auto &x : thresholds_reduced) {
+    //             split_by_feature = splitDataset(dataset, i, x);
+
+    //             // calculate information gain and update best cut parameters accordingly
+    //             data_left = split_by_feature[0], data_right = split_by_feature[1];
+    //             left_sorted_by_class = splitDataset(&data_left,0,0.5);
+    //             right_sorted_by_class = splitDataset(&data_right,0,0.5);
+    //             parent_sorted_by_class = splitDataset(dataset,0,0.5);
+
+    //             weight_left = data_left.size()/dataset->size(), weight_right = data_right.size()/dataset->size();
+
+    //             left_ones = left_sorted_by_class[1].size(), left_zeros = left_sorted_by_class[0].size();
+    //             right_ones = right_sorted_by_class[1].size(), right_zeros = right_sorted_by_class[0].size();
+    //             parent_ones = parent_sorted_by_class[1].size(), parent_zeros = parent_sorted_by_class[0].size();
+
+    //             score_left = 1 - (pow(left_ones/data_left.size(),2) + pow(left_zeros/data_left.size(),2));
+    //             score_right = 1 - (pow(right_ones/data_right.size(),2) + pow(left_zeros/data_right.size(),2));
+    //             score_parent = pow(left_ones/data_left.size(),2) + pow(left_zeros/data_left.size(),2);
+
+    //             current_info = score_parent - ( weight_left * score_left + weight_right - score_right );
+
+    //             if (current_info > best_info) {
+    //                 best_data_right = data_right;
+    //                 best_data_left = data_left;
+    //                 best_info = current_info;
+    //                 best_threshold = x;
+    //                 best_feature = i;
+    //             }
+
+    //             // clean up after each threshold
+    //             data_right.clear(), data_left.clear();
+    //             split_by_feature.clear();
+    //         }
+
+    //         // clean up after each feature
+    //         thresholds_reduced.clear(), thresholds.clear();
+    //     }
+
+    //     dcut best_cut = std::make_tuple(best_feature, best_threshold, best_info, best_data_left, best_data_right);
+
+    //     printf("\nBest split found @ (feature, threshold, info) = (%i, %f, %f)\n",best_feature, best_threshold, best_info);
+
+    //     printMatrix(best_data_left);
+    //     printMatrix(best_data_right);
+
+    //     return best_cut;
+    // }
 
     // split a 2D dataset into 2 subchunks based on a feature i and cut threshold x
     std::vector<dmatrix> splitDataset(dmatrix* dataset, int i, double x) {
@@ -235,6 +311,16 @@ class DecisionTree {
         std::vector<dmatrix> split_result = {child_left,child_right};
 
         return split_result;      
+    }
+
+    // extract column i ( (i-1)th feature) from 2D dataset
+    dcolumn extractColumn(dmatrix* dataset, int i) {
+
+        drow row_vector;
+
+        for (const auto &row : *dataset) {row_vector.push_back(row[i]);}
+
+        return row_vector;
     }
 
 };
