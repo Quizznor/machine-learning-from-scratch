@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <chrono>
 #include <vector>
 #include <limits>
 #include <cmath>
@@ -103,9 +104,11 @@ class DecisionTree {
   public:
 
     // have to hardcode this at compile time the way it is now =(
-    const unsigned long n_train = 1207, n_test = 213;
-    const unsigned long n_features = 129;
+    const size_t n_train = 1207, n_test = 213;
+    const size_t n_features = 129;
     int max_tree_depth, minimum_samples;
+    double training_performance = 0;
+    int n_nodes = 1, n_leaves = 0;
 
     dmatrix training_set {n_train, drow (n_features) };
     dmatrix testing_set {n_test, drow (n_features) };
@@ -139,9 +142,11 @@ class DecisionTree {
     // returns the root node of the decision tree
     void buildTree(bool verbose=false) {
 
+        auto start = std::chrono::high_resolution_clock::now();
+
         dcut root_split = calculateBestSplit(training_set, verbose);
 
-        int feature = std::get<0>(root_split);
+        size_t feature = std::get<0>(root_split);
         double threshold = std::get<1>(root_split);
         double info_gain = std::get<2>(root_split);
 
@@ -151,22 +156,38 @@ class DecisionTree {
         Node* node_left = buildTree(data_left, 1, verbose);
         Node* node_right = buildTree(data_right, 1, verbose);
 
-        root_node->setRoot(feature, threshold, info_gain, node_left, node_right);  
+        root_node->setRoot(feature, threshold, info_gain, node_left, node_right);
 
-        std::cout << "Finished building decision tree...\n";      
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto training_time = std::chrono::duration_cast<std::chrono::seconds>(stop-start);
+
+        std::cout << "\nFinished building decision tree...\n";
+        std::cout << "maximum tree depth:   " << max_tree_depth << "\n";
+        std::cout << "minimum sample size:  " << minimum_samples << "\n\n";
+        std::cout << "n_nodes / n_leaves:   " << n_nodes << "/" << n_leaves << "\n";
+        std::cout << "(theoretical max):    (" << pow(2,max_tree_depth)-1 << "/" << pow(2,max_tree_depth-1) << ")\n\n";
+        std::cout << "Training performance: " << training_performance << "%\n";
+        std::cout << "Training time:        " << training_time.count() << "s\n\n";
+    }
+
+    // predict testing set and measure performance
+    void predictTest() {
+
+        // TODO write this
+
     }
 
   private:
 
     // iteratively return optimized nodes
-    Node* buildTree(dmatrix& dataset, int depth, bool verbose = false) {
+    Node* buildTree(dmatrix& dataset, size_t depth, bool verbose = false) {
 
+        // keep returning (non-leaf) nodes if stopping conditions aren't met
         if (depth + 1 < max_tree_depth && dataset.size() > minimum_samples) {
 
-            // keep returning (non-leaf) nodes
             dcut root_split = calculateBestSplit(dataset, verbose);
 
-            int feature = std::get<0>(root_split);
+            size_t feature = std::get<0>(root_split);
             double threshold = std::get<1>(root_split);
             double info_gain = std::get<2>(root_split);
 
@@ -178,10 +199,13 @@ class DecisionTree {
 
             Node* this_node = new Node(feature, threshold, info_gain, node_left, node_right);
 
+            n_nodes +=1;
+
             return this_node;
         }
+        // else return leaf node based on remaining dataset
         else {
-            // return leaf node based on dataset
+
             dcolumn labels = extractColumn(dataset, 0);
 
             int leaf_class;
@@ -191,8 +215,11 @@ class DecisionTree {
             else {leaf_class = 0;}
 
             double purity = std::max(ones, dataset.size()-ones)/(double)dataset.size() * 100;
+            training_performance += purity * dataset.size()/training_set.size();
 
             Node* leaf_node = new Node(leaf_class, purity);
+
+            n_nodes +=1, n_leaves +=1;
 
             return leaf_node;
         }
@@ -201,7 +228,7 @@ class DecisionTree {
     // return feature, threshold that maximize information gain
     dcut calculateBestSplit(dmatrix& dataset, bool verbose=false) {
 
-        int best_feature = 0;
+        size_t best_feature = 0;
         double best_threshold = 0;
         double best_information = -1e10;
         double purity_left, purity_right;
@@ -210,19 +237,19 @@ class DecisionTree {
         dcolumn labels_left, labels_right;
 
         double len_parent = dataset.size();
-        int parent_zeros = std::count(labels.begin(),labels.end(),0);
-        int parent_ones = std::count(labels.begin(),labels.end(),1);
+        size_t parent_zeros = std::count(labels.begin(),labels.end(),0);
+        size_t parent_ones = std::count(labels.begin(),labels.end(),1);
 
         // iterate over all features (i=0 is the label!)
-        for (int i = 1; i < n_features; i++) {
+        for (size_t i = 1; i < n_features; i++) {
 
-            std::cout << "\rCalculating best split " << i << "/" << n_features-1;
-
+            if (verbose) {std::cout << "\rCalculating best split " << i << "/" << n_features-1;}
+            
             // all possible threshold values
             auto features = extractColumn(dataset, i);
 
             // iterate over all threshold values
-            for (int j = 0; j < dataset.size(); j++) {
+            for (size_t j = 0; j < dataset.size(); j++) {
 
                 for (const auto &row : dataset) {
                     // split data into left and right child based on threshold
@@ -237,10 +264,10 @@ class DecisionTree {
                 if (len_left==0 || len_right==0) {continue;}
 
                 // evaluate information gain from cutting at threshold
-                int left_zeros = std::count(labels_left.begin(),labels_left.end(),0);
-                int left_ones = std::count(labels_left.begin(),labels_left.end(),1);
-                int right_zeros = std::count(labels_right.begin(),labels_right.end(),0);
-                int right_ones = std::count(labels_right.begin(),labels_right.end(),1);
+                size_t left_zeros = std::count(labels_left.begin(),labels_left.end(),0);
+                size_t left_ones = std::count(labels_left.begin(),labels_left.end(),1);
+                size_t right_zeros = std::count(labels_right.begin(),labels_right.end(),0);
+                size_t right_ones = std::count(labels_right.begin(),labels_right.end(),1);
 
                 double score_left = 1 - (pow(left_ones/len_left,2) + pow(left_zeros/len_left,2));
                 double score_right = 1 - (pow(right_ones/len_right,2) + pow(right_zeros/len_right,2));
@@ -276,13 +303,11 @@ class DecisionTree {
             printMatrix(child_right);
         }
 
-        std::cout << std::endl;
-
         return best_cut;
     }
 
     // split dataset into two subchunks with x[i] <= x and x[i] > x respectively
-    std::vector<dmatrix> splitDataset(dmatrix& dataset, int i, double x) const {
+    std::vector<dmatrix> splitDataset(dmatrix& dataset, size_t i, double x) const {
          
         dmatrix child_left, child_right;
 
@@ -295,7 +320,7 @@ class DecisionTree {
     }
 
     // extract column i ( (i-1)th feature) from 2D dataset
-    dcolumn extractColumn(dmatrix& dataset, int i) const {
+    dcolumn extractColumn(dmatrix& dataset, size_t i) const {
 
         drow row_vector;
 
@@ -308,8 +333,8 @@ class DecisionTree {
 
 int main() {
 
-    DecisionTree PupClassifier(3,10);
-    PupClassifier.buildTree(true);
+    DecisionTree PupClassifier(10,10);
+    PupClassifier.buildTree();
 
     return 0;
 }
