@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 #include <chrono>
 #include <vector>
 #include <limits>
@@ -166,15 +167,51 @@ class DecisionTree {
         std::cout << "minimum sample size:  " << minimum_samples << "\n\n";
         std::cout << "n_nodes / n_leaves:   " << n_nodes << "/" << n_leaves << "\n";
         std::cout << "(theoretical max):    (" << pow(2,max_tree_depth)-1 << "/" << pow(2,max_tree_depth-1) << ")\n\n";
-        std::cout << "Training performance: " << training_performance << "%\n";
+        std::cout << "Training performance: " << std::setprecision(2) << training_performance << "%\n";
         std::cout << "Training time:        " << training_time.count() << "s\n\n";
     }
 
     // predict testing set and measure performance
     void predictTest() {
 
-        // TODO write this
+        dcolumn predicted_labels, testing_labels = extractColumn(testing_set, 0);
 
+        for (const auto &row : testing_set) {
+            predicted_labels.push_back(navigateToLeaf(row, root_node));
+        }
+
+        int false_negatives = 0, false_positives = 0, true_positives = 0, true_negatives = 0;
+
+        for (size_t i=0; i < n_test; i++) {
+            if (predicted_labels[i] == testing_labels[i]) {
+                switch ((int)predicted_labels[i]) {
+                    case 1:
+                        true_positives += 1;
+                        break;
+                    case 0:
+                        true_negatives += 1;
+                        break;
+                }
+            }
+            else {
+                switch ((int)predicted_labels[i]) {
+                    case 1:
+                        false_positives += 1;
+                        break;
+                    case 0:
+                        false_negatives += 1;
+                        break;
+                }
+            }
+            
+        }
+
+        printf("Testing set accuracy: %.2f %%\n\n",100*((double)true_positives + true_negatives)/testing_set.size());
+
+        std::cout << "       | Predicted 1 | Predicted 0 \n";
+        std::cout << "-------|-------------|-------------\n";
+        std::cout << "True 1 |" << std::setw(12) << true_positives << " |" << std::setw(12) << false_negatives << "\n";
+        std::cout << "True 0 |" << std::setw(12) << false_positives << " |" << std::setw(12) << true_negatives << "\n\n";
     }
 
   private:
@@ -329,12 +366,23 @@ class DecisionTree {
         return row_vector;
     }
 
+    // navigate from arbitrary node to it's leaf based on datapoint
+    int navigateToLeaf(const drow& datapoint, Node* node) {
+
+        if (node->is_leaf) {return node->leaf_class;}
+        else {
+            if (datapoint[node->cut_feature] <= node->cut_threshold) {
+                return navigateToLeaf(datapoint, node->child_left);}
+            else {return navigateToLeaf(datapoint, node->child_right);}
+        }
+    }
 };
 
 int main() {
 
-    DecisionTree PupClassifier(10,10);
+    DecisionTree PupClassifier(3,10);
     PupClassifier.buildTree();
+    PupClassifier.predictTest();
 
     return 0;
 }
