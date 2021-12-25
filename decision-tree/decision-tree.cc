@@ -214,6 +214,23 @@ class DecisionTree {
         std::cout << "True 0 |" << std::setw(12) << false_positives << " |" << std::setw(12) << true_negatives << "\n\n";
     }
 
+    // print the tree from node downwards
+    void printTree(Node* node, std::string comparison="START:", size_t depth=1) {
+
+        std::string padding = std::string("   ",depth);
+
+        if (node->is_leaf) {
+            printf("%s Class %i leaf, training purity = %.2f\n",padding,node->leaf_class,node->leaf_purity);
+        }
+        else {
+            double i = node->cut_feature, x = node->cut_threshold;
+
+            printf("%s Node x_%i <=? %.2f | info = %.2f\n",padding,i,x,node->information_gain);
+            printTree(node->child_left,"TRUE:",depth+1);
+            printTree(node->child_right,"FALSE:",depth+1);
+        }
+    }
+
   private:
 
     // iteratively return optimized nodes
@@ -383,6 +400,9 @@ int main() {
     DecisionTree PupClassifier(3,10);
     PupClassifier.buildTree();
     PupClassifier.predictTest();
+
+    std::cout << "\nResulting shape of the tree:\n\n";
+    PupClassifier.printTree(PupClassifier.root_node);
 
     return 0;
 }
