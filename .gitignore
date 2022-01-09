@@ -6,5 +6,6 @@ decision-tree/decision-tree
 decision-tree/seals_*
 
 # digit classifier
+digit-classifier/digit-classifier
 digit-classifier/dataset/*
 digit-classifier/parameters/*
