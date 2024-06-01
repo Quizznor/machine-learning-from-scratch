@@ -1,29 +1,25 @@
 mod generator;
-// use solver;
-
-use rand::Rng;
+use solver;
+use ndarray_npy::write_npy;
 
 fn main() {
-    let n_vertices : usize = 20;
-    let connectivity : f64 = 0.5;
-    let size = n_vertices * n_vertices;
 
-    let mut graph = generator::make_graph(size);
+    let n_vertices : usize = 100;
+    let connectivity : f64 = 1e-7;
 
-    // graphical representation from full graph?
+    let (graph, adjacency_matrix) = generator::make_graph(n_vertices, connectivity);
 
-    // deleting some connections to make the graph more interesting
-    let mut rng = rand::thread_rng();
-    for _ in 1..( (1. - connectivity) * (size as f64) ) as i64 {
-        let i : usize = rng.gen_range(0..size);
-        graph[[i / n_vertices, i % n_vertices]] = 0;
-    }
-
+    write_npy("positions.npy", &graph)
+        .expect("Failed to write positions to file =(");
+    write_npy("distances.npy", &adjacency_matrix)
+        .expect("Failed to write distances to file =(");
+    
+    println!("{:.3}", adjacency_matrix);
 
     // design goal
     //     -> generate weighted graph using generator.rs -- DONE
     //     -> solve for shortest Path from A to B...
-    //     -> have python or something plot the result
+    //     -> have python or something plot the result -- DONE
     
 }
 
