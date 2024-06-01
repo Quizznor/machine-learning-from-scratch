@@ -1,8 +1,8 @@
-use ndarray::s;
-use ndarray::Array2;
-use rand::prelude::SliceRandom;
 use ndarray_rand::{rand_distr::Standard, RandomExt};
 use ndarray_rand::rand_distr::num_traits::Pow;
+use rand::prelude::SliceRandom;
+use ndarray::Array2;
+use ndarray::s;
 
 pub fn make_graph(n_vertices : usize, connectivity : f64) -> (Array2<f64>, Array2<f64>) {
 
@@ -26,13 +26,14 @@ pub fn make_graph(n_vertices : usize, connectivity : f64) -> (Array2<f64>, Array
     }
 
     // deleting some connections to make the graph more interesting
-    let mut temp: Vec<usize> = (0..n_vertices.pow(2)).collect();
+    let mut temp : Vec<usize> = (0..n_vertices.pow(2)).collect();
     temp.shuffle(&mut rand::thread_rng());
     let indices_to_delete = &temp[0..(( (1. - connectivity) * (n_vertices.pow(2) as f64 )) as usize )];
 
     for index in indices_to_delete {
 
-        // we have to ensure graph is still fully connected
+        // we have to ensure every vertex has at least one connection
+        // makes it more probable that the graph is fully connected
         {
             let (vertex_a, vertex_b) = (index / n_vertices, index % n_vertices);
         
