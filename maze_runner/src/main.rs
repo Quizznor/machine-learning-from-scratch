@@ -4,7 +4,7 @@ use ndarray_npy::write_npy;
 
 fn main() {
 
-    let n_vertices : usize = 10;    // the way the code is structured we can only do 10 =(
+    let n_vertices : usize = 100;    // the way the code is structured we can only do 10 =(
     let connectivity : f64 = 1.;   // mustn't be too low to ensure a fully connected graph 
 
     let (graph, adjacency_matrix) = generator::make_graph(n_vertices, connectivity);
@@ -15,7 +15,6 @@ fn main() {
         .expect("Failed to write distances to file =(");
     
     let min_distance_paths = solver::solve_graph(adjacency_matrix);
-
 
     // println!("{:.3}", mind_distance_paths);
 
