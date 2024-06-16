@@ -7,7 +7,7 @@ fn main() {
     let n_vertices : usize = 100;    // the way the code is structured we can only do 10 =(
     let connectivity : f64 = 0.3;    // mustn't be too low to ensure a fully connected graph 
     
-    let create_method : &str = "delauney";        // method used to construct graph vertices   
+    let create_method : &str = "planar";        // method used to construct graph vertices   
     let solve_method : &str = "dijkstra";         // method used to calculate shortest path
 
     let (graph, adjacency_matrix) = generator::make_graph(n_vertices, connectivity, create_method);
