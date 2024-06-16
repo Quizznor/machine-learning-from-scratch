@@ -4,9 +4,31 @@ use rand::prelude::SliceRandom;
 use ndarray::Array2;
 use ndarray::s;
 
-pub fn make_graph(n_vertices : usize, connectivity : f64) -> (Array2<f64>, Array2<f64>) {
+pub fn make_graph(n_vertices : usize, connectivity : f64, method : &str) -> (Array2<f64>, Array2<f64>) {
 
     let positions = Array2::<f64>::random((n_vertices, 2), Standard);
+    let mut adjacency_matrix = make_all_connections(&positions);
+
+    match method {
+        "chaotic" => {
+            adjacency_matrix = make_chaotic_connections(adjacency_matrix, &positions, connectivity);
+        }
+        "planar" => {
+            adjacency_matrix = make_planar_connections(adjacency_matrix, &positions, connectivity);
+        }
+        "delauney" => {
+            adjacency_matrix = make_delauney_connections(adjacency_matrix, &positions);
+        }
+
+        _ => {println!("method not implemented");}
+    }
+
+    return (positions, adjacency_matrix);
+}
+
+fn make_all_connections(positions : &Array2<f64>) -> Array2<f64> {
+
+    let n_vertices : usize = positions.len();
     let mut adjacency_matrix = Array2::<f64>::zeros((n_vertices, n_vertices));
 
     // calculate distances into adjacency_matrix
@@ -24,6 +46,15 @@ pub fn make_graph(n_vertices : usize, connectivity : f64) -> (Array2<f64>, Array
             adjacency_matrix[[j, i]] = distance;
         }
     }
+
+    return adjacency_matrix;
+}
+
+fn make_chaotic_connections(adjacency_matrix : Array2<f64>, 
+    positions : &Array2<f64>, connectivity : f64) -> Array2<f64> {
+
+    let n_vertices : usize = positions.len();
+    let mut adjacency_matrix = Array2::<f64>::zeros((n_vertices, n_vertices));
 
     // deleting some connections to make the graph more interesting
     let mut temp : Vec<usize> = (0..n_vertices.pow(2)).collect();
@@ -50,13 +81,24 @@ pub fn make_graph(n_vertices : usize, connectivity : f64) -> (Array2<f64>, Array
         adjacency_matrix[[index % n_vertices, index / n_vertices]] = 0.;
     }
 
-    return (positions, adjacency_matrix);
-
-    // return Array2::<u8>::random((n_vertices, n_vertices), Standard);
+    return adjacency_matrix;
 }
 
-// pub fn multi_dimensional_scaling(graph : Array2, ) -> Array2 {
-//     let Z : Array2<f64> = Array2::zeros((2, graph.shape().get(0)));
+fn make_planar_connections(adjacency_matrix : Array2<f64>, 
+    positions : &Array2<f64>, max_connectivty : f64) -> Array2<f64> {
+    
+    let n_vertices : usize = positions.len();
 
-//     println("{:.1}", Z);
-// }
+    // TODO: implement this
+    return adjacency_matrix;
+}
+
+fn make_delauney_connections(adjacency_matrix : Array2<f64>, 
+    positions : &Array2<f64>, ) -> Array2<f64> {
+        
+    let n_vertices : usize = positions.len();
+    let adjacency_matrix = Array2::<f64>::zeros((n_vertices, n_vertices));
+
+    // TODO: implement this
+    return adjacency_matrix;
+}
