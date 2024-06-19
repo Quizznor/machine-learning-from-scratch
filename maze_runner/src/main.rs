@@ -17,13 +17,12 @@ fn main() {
     write_npy("distances.npy", &adjacency_matrix)
         .expect("Failed to write distances to file =(");
     
-    // let min_distance_paths = solver::solve_graph(adjacency_matrix);
-
-    // println!("{:.3}", mind_distance_paths);
+    let min_distance_paths = solver::solve_graph(adjacency_matrix, SOLVE_METHOD);
+    let _ = solver::write_to_file(min_distance_paths, "minimum_distance_paths.txt");
 
     // design goal
     //     -> generate weighted graph using generator.rs -- DONE
-    //     -> solve for shortest Path from A to B...
+    //     -> solve for shortest Path from A to B... -- DONE?
     //     -> have python or something plot the result -- DONE
     
 }

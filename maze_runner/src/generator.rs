@@ -125,6 +125,8 @@ fn make_delauney_connections(mut adjacency_matrix : Array2<f64>,
         
     let n_vertices : usize = adjacency_matrix.len();
 
+    println!("{}, implement me!", n_vertices);
+
     // TODO: implement this
     //  - make 3D projection
     //  - build convex hull
