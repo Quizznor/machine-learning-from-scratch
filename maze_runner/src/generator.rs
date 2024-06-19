@@ -6,7 +6,7 @@ use ndarray::s;
 
 pub fn make_graph(n_vertices : usize, connectivity : f64, method : &str) -> (Array2<f64>, Array2<f64>) {
 
-    let positions = Array2::<f64>::random((n_vertices, 2), Standard);
+    let positions : Array2<f64, > = Array2::<f64>::random((n_vertices, 2), Standard);
     let mut adjacency_matrix = make_all_connections(&positions);
 
     match method {

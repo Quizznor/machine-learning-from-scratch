@@ -3,29 +3,23 @@ use ndarray::Array1;
 use ndarray::Axis;
 use ndarray::s;
 
-pub fn solve_graph(adjacency_matrix : Array2<f64>) -> Array1<usize> {
+pub fn solve_graph(adjacency_matrix : Array2<f64>) -> Vec<String> {
     
     // diagnostics/runtime performance?
     // your preferred algorithm here
     return dijkstra_solve(adjacency_matrix);
 }
 
-fn dijkstra_solve(adjacency_matrix : Array2<f64>) -> Array1<usize> {
-    // IDEA: write paths as integers into 2D array
-    // e.g. path 1 -> 2 -> 5 -> 6 becomes (6)521 ?
+fn dijkstra_solve(adjacency_matrix : Array2<f64>) -> Vec<String> {
 
-    let n_vertices = adjacency_matrix.len_of(Axis(0));
-    
+    let n_vertices : usize = adjacency_matrix.len_of(Axis(0));
     let mut not_visited : Vec<usize> = (0..n_vertices).collect();
     let mut distances = Array1::<f64>::from_elem(n_vertices, f64::INFINITY);
-    let mut paths = Array1::<usize>::zeros(distances.raw_dim());
+    let mut paths = vec!["".to_string(); n_vertices];
 
     let (mut depth, mut next_node, mut curr_distance) = (0, 0, 0.);
 
     while not_visited.len() != 0 {
-        println!("{}, {}, {}", depth, n_vertices, not_visited.len());
-
-        if depth > n_vertices {break;}
 
         // get connections at next node
         let connections = adjacency_matrix.slice(s![next_node, ..]);
@@ -39,7 +33,7 @@ fn dijkstra_solve(adjacency_matrix : Array2<f64>) -> Array1<usize> {
             if (curr_distance + connections[n]) > distances[n] {continue;}
 
             // connection is closer, update distances + path
-            paths[n] = depth * next_node + paths[next_node];       // does this work?
+            // paths[n] = depth * next_node + paths[next_node];       // does this work?
             distances[n] = curr_distance + connections[n];
             println!("{}", distances[n]);
 
