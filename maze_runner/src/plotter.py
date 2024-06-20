@@ -24,7 +24,7 @@ longest_path, index = read_minimum_paths('minimum_distance_paths.txt')
 
 for i, ((xi, yi), edges) in enumerate(zip(positions, distances), 0):
     
-    is_start_end_point = i in [0, index]
+    is_start_end_point = i in [0, index + 1]
     plt.scatter(xi, yi, 
                 c = 'k' if not is_start_end_point else 'r', 
                 s = 20 if not is_start_end_point else 30, 

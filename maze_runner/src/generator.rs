@@ -123,7 +123,15 @@ fn make_planar_connections(mut adjacency_matrix : Array2<f64>,
 fn make_delauney_connections(mut adjacency_matrix : Array2<f64>, 
     positions : &Array2<f64>, ) -> Array2<f64> {
         
-    let n_vertices : usize = adjacency_matrix.len();
+    let n_vertices : usize = positions.raw_dim()[0];
+
+    // find seed triangle, O(n²) go brr
+    let mut highest_two_points : ()
+
+    let 'point1 = loop {
+        break 42;
+    } 
+
 
     println!("{}, implement me!", n_vertices);
 

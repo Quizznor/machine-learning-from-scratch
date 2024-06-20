@@ -5,9 +5,9 @@ mod solver;
 fn main() {
 
     const N_VERTICES : usize = 100;    // the way the code is structured we can only do 10 =(
-    const CONNECTIVITY : f64 = 0.3;    // mustn't be too low to ensure a fully connected graph 
+    const CONNECTIVITY : f64 = 0.2;    // mustn't be too low to ensure a fully connected graph 
     
-    const CREATE_METHOD : &str = "planar";        // method used to construct graph vertices   
+    const CREATE_METHOD : &str = "delauney";      // method used to construct graph vertices   
     const SOLVE_METHOD : &str = "dijkstra";       // method used to calculate shortest path
 
     let (graph, adjacency_matrix) = generator::make_graph(N_VERTICES, CONNECTIVITY, CREATE_METHOD);
