@@ -1,6 +1,7 @@
 use ndarray_rand::{rand_distr::Standard, RandomExt};
 use ndarray_rand::rand_distr::num_traits::Pow;
 use rand::prelude::SliceRandom;
+use ndarray::ArrayView1;
 use ndarray::Array2;
 use ndarray::s;
 
@@ -122,18 +123,83 @@ fn make_planar_connections(mut adjacency_matrix : Array2<f64>,
 
 fn make_delauney_connections(mut adjacency_matrix : Array2<f64>, 
     positions : &Array2<f64>, ) -> Array2<f64> {
-        
+
+    fn construct_circumcircle(point1 : ArrayView1<f64>,
+                              point2 : ArrayView1<f64>,
+                              point3 : ArrayView1<f64>) -> (f64, f64, f64) {
+
+            let (x1, y1) = (point1[0], point1[1]);
+            let (x2, y2) = (point2[0], point2[1]);
+            let (x3, y3) = (point3[0], point3[1]);
+
+            let d = (x1 - x3) * (y2 - y3) - (x2 - x3) * (y1 - y3);
+            let center_x = (0.5 * (y2 - y3) * ((x1 - x3) * (x1 + x3) + (y1 - y3) * (y1 + y3))
+                         - 0.5 * (y1 - y3) * ((x2 - x3) * (x2 + x3) + (y2 - y3) * (y2 + y3))) / d;
+            let center_y = (0.5 * (x1 - x3) * ((x2 - x3) * (x2 + x3) + (y2 - y3) * (y2 + y3))
+                         - 0.5 * (x2 - x3) * ((x1 - x3) * (x1 + x3) + (y1 - y3) * (y1 + y3))) / d;
+            let radius: f64 = (((x1 - center_x).pow(2.) + (y1 - center_x).pow(2.)) as f64).pow(0.5);
+
+            return (center_x, center_y, radius);
+    }
+
+    fn point_lies_in_circle(point : ArrayView1<f64>, 
+        center_x : &f64, center_y : &f64, radius : &f64) -> bool {
+            return (((point[0] - center_x).pow(2.) + (point[1] - center_y).pow(2.)) as f64).pow(0.5) < *radius;
+    }
+    
     let n_vertices : usize = positions.raw_dim()[0];
 
-    // find seed triangle, O(n²) go brr
-    let mut highest_two_points : ()
+    // O(n⁴) go brr
+    let mut base = (0, 1, 2);
 
-    let 'point1 = loop {
-        break 42;
-    } 
+    'point1 : loop {
+        'point2  : loop {
+            // we check for connection (point1, point2) - if it exists
+            // for any triangle if any point lies inside the triangle
+            if adjacency_matrix[[base.0, base.1]] != 0. {
 
+                'point3 : loop {
 
-    println!("{}, implement me!", n_vertices);
+                    let point1 = positions.slice(s![base.0, ..]);
+                    let point2 = positions.slice(s![base.1, ..]);
+                    let point3 = positions.slice(s![base.2, ..]);
+                    
+                    let (center_x, center_y, radius) = construct_circumcircle(point1, point2, point3);
+                    
+                    let mut one_triangle_exists: bool = false;
+                    for p4 in 0..n_vertices {
+                        if p4 == base.0 || p4 == base.1 || p4 == base.2 || one_triangle_exists {continue;}
+
+                        one_triangle_exists = point_lies_in_circle(positions.slice(s![p4, ..]),
+                        &center_x, &center_y, &radius);
+                    }
+
+                    if !one_triangle_exists {
+                        adjacency_matrix[[base.0, base.1]] = 0.;
+                        adjacency_matrix[[base.1, base.0]] = 0.;
+                    }
+
+                    if base.2 >= n_vertices - 1 {break 'point3}
+                    else {base.2 += 1;}
+                }
+            }
+
+            if base.1 >= n_vertices - 2 {break 'point2}
+            else {
+                base.1 += 1;
+                base.2 = base.1 + 1;
+            }
+        }
+
+        if base.0 >= n_vertices - 3 {break 'point1}
+        else {
+            base.0 += 1;
+            base.1 = base.0 + 1;
+            base.2 = base.1 + 1;
+        }
+    }
+
+    // println!("{}, {}, {}, implement me!", triangle_points.0, triangle_points.1, triangle_points.2);
 
     // TODO: implement this
     //  - make 3D projection
