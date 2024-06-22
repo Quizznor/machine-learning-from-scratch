@@ -1,9 +1,33 @@
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 
 positions = np.load('positions.npy')
 distances = np.load('distances.npy')
 n_vertices = len(positions)
+
+def construct_circumcircle(point1, point2, point3):
+
+        (x1, y1) = (point1[0], point1[1])
+        (x2, y2) = (point2[0], point2[1])
+        (x3, y3) = (point3[0], point3[1])
+
+        d = (x1 - x3) * (y2 - y3) - (x2 - x3) * (y1 - y3)
+        
+        center_x = ((y2 - y3) * ((x1 - x3) * (x1 + x3) + (y1 - y3) * (y1 + y3))
+                  - (y1 - y3) * ((x2 - x3) * (x2 + x3) + (y2 - y3) * (y2 + y3))) / (2 * d)
+        center_y = ((x1 - x3) * ((x2 - x3) * (x2 + x3) + (y2 - y3) * (y2 + y3))
+                  - (x2 - x3) * ((x1 - x3) * (x1 + x3) + (y1 - y3) * (y1 + y3))) / (2 * d)
+        
+        radius = np.sqrt((x1 - center_x)**2 + (y1 - center_y)**2)
+
+        print('Distances:')
+        print(f'\t{np.sqrt((x1 - center_x)**2 + (y1 - center_x)**2):.4f} for point1')
+        print(f'\t{np.sqrt((x2 - center_x)**2 + (y2 - center_x)**2):.4f} for point2')
+        print(f'\t{np.sqrt((x3 - center_x)**2 + (y3 - center_x)**2):.4f} for point3')
+
+        return (center_x, center_y, radius)
 
 def read_minimum_paths(target : str) -> list[int] :
     
@@ -31,15 +55,20 @@ for i, ((xi, yi), edges) in enumerate(zip(positions, distances), 0):
                 zorder=1
             )
 
-    for j, (xj, yj) in enumerate(positions[i:], i):
-        if distances[i, j] == 0: continue
+    # for j, (xj, yj) in enumerate(positions[i:], i):
+    #     if distances[i, j] == 0: continue
+    #     plt.plot([xi, xj], [yi, yj], lw=0.8, c='gray', alpha=0.2, zorder=0)
 
-        plt.plot([xi, xj], [yi, yj], lw=0.8, c='gray', alpha=0.2, zorder=0)
+cx, cy, r = construct_circumcircle(*[int(x) for x in sys.argv[1:]])
+plt.scatter(cx, cy, c='g')
+circumcircle = Circle((cx, cy), r, facecolor='none', edgecolor='k')
+plt.gca().add_patch(circumcircle)
 
-for i in range(len(longest_path) - 1):
-    xi, yi = positions[i]
-    xf, yf = positions[i+1]
+# for i in range(len(longest_path) - 1):
+#     xi, yi = positions[i]
+#     xf, yf = positions[i+1]
 
-    plt.plot([xi, xf], [yi, yf], c='r', lw=1.3)
+#     plt.plot([xi, xf], [yi, yf], c='r', lw=1.3)
 
+plt.gca().set_box_aspect(1.)
 plt.show()

@@ -137,7 +137,7 @@ fn make_delauney_connections(mut adjacency_matrix : Array2<f64>,
                          - 0.5 * (y1 - y3) * ((x2 - x3) * (x2 + x3) + (y2 - y3) * (y2 + y3))) / d;
             let center_y = (0.5 * (x1 - x3) * ((x2 - x3) * (x2 + x3) + (y2 - y3) * (y2 + y3))
                          - 0.5 * (x2 - x3) * ((x1 - x3) * (x1 + x3) + (y1 - y3) * (y1 + y3))) / d;
-            let radius: f64 = (((x1 - center_x).pow(2.) + (y1 - center_x).pow(2.)) as f64).pow(0.5);
+            let radius: f64 = (((x1 - center_x).pow(2.) + (y1 - center_y).pow(2.)) as f64).pow(0.5);
 
             return (center_x, center_y, radius);
     }
@@ -152,52 +152,42 @@ fn make_delauney_connections(mut adjacency_matrix : Array2<f64>,
     // O(n⁴) go brr
     let mut base = (0, 1, 2);
 
-    'point1 : loop {
-        'point2  : loop {
-            // we check for connection (point1, point2) - if it exists
-            // for any triangle if any point lies inside the triangle
-            if adjacency_matrix[[base.0, base.1]] != 0. {
-
-                'point3 : loop {
-
-                    let point1 = positions.slice(s![base.0, ..]);
-                    let point2 = positions.slice(s![base.1, ..]);
-                    let point3 = positions.slice(s![base.2, ..]);
-                    
-                    let (center_x, center_y, radius) = construct_circumcircle(point1, point2, point3);
-                    
-                    let mut one_triangle_exists: bool = false;
-                    for p4 in 0..n_vertices {
-                        if p4 == base.0 || p4 == base.1 || p4 == base.2 || one_triangle_exists {continue;}
-
-                        one_triangle_exists = point_lies_in_circle(positions.slice(s![p4, ..]),
-                        &center_x, &center_y, &radius);
-                    }
-
-                    if !one_triangle_exists {
-                        adjacency_matrix[[base.0, base.1]] = 0.;
-                        adjacency_matrix[[base.1, base.0]] = 0.;
-                    }
-
-                    if base.2 >= n_vertices - 1 {break 'point3}
-                    else {base.2 += 1;}
-                }
-            }
-
-            if base.1 >= n_vertices - 2 {break 'point2}
-            else {
-                base.1 += 1;
-                base.2 = base.1 + 1;
-            }
-        }
-
-        if base.0 >= n_vertices - 3 {break 'point1}
-        else {
-            base.0 += 1;
-            base.1 = base.0 + 1;
-            base.2 = base.1 + 1;
-        }
+    for x in positions.iter() {
+        println!("{}", x);
     }
+
+    // while base.0 < n_vertices {
+    //     let point1 = positions.slice(s![base.0, ..]);
+
+    //     while base.1 < n_vertices {
+    //         if base.0 == base.1 || adjacency_matrix[[base.1, base.0]] == 0. {base.1 += 1; continue;}
+
+    //         let point2 = positions.slice(s![base.1, ..]);
+
+    //         // we check for connection (point1, point2) - if it exists
+    //         // for any triangle if any point lies inside the triangle
+    //         while base.2 < n_vertices {
+    //             if base.0 == base.1 || base.0 == base.2 || base.1 == base.2 {base.2 += 1; continue;}
+
+    //             let point3 = positions.slice(s![base.2, ..]);
+    //             let (center_x, center_y, radius) = construct_circumcircle(point1, point2, point3);  
+                
+    //             let mut no_triangle_exists = true;
+    //             for p4 in 0..n_vertices {
+    //                 if p4 == base.0 || p4 == base.1 || p4 == base.2 {continue;}
+    //             }
+
+    //             base.2 += 1;
+    //         }
+
+    //         base.1 += 1;
+    //         base.2 = 0;
+    //     }
+
+    //     base.0 += 1;
+    //     base.1 = 0;
+    //     base.2 = 0;
+    // }
 
     // println!("{}, {}, {}, implement me!", triangle_points.0, triangle_points.1, triangle_points.2);
 
@@ -209,3 +199,59 @@ fn make_delauney_connections(mut adjacency_matrix : Array2<f64>,
     
     return adjacency_matrix;
 }
+
+
+
+    // // 'point1 : loop {
+    //     let point1 = positions.slice(s![base.0, ..]);
+
+    //     'point2  : loop {
+    //         let point2 = positions.slice(s![base.1, ..]);
+
+
+            
+
+
+    //         'point3 : loop {
+    //             println!("{:?}", base);
+    //             if adjacency_matrix[[base.0, base.1]] != 0. || base.2 == base.0 || base.2 == base.1 {
+
+    //                 let point3 = positions.slice(s![base.2, ..]);
+    //                 let (center_x, center_y, radius) = construct_circumcircle(point1, point2, point3);  
+    //                 let mut one_triangle_exists: bool = false;
+  
+    //                 for p4 in 0..n_vertices {
+    //                     if p4 == base.0 || p4 == base.1 || p4 == base.2 || one_triangle_exists {continue;}
+                        
+    //                     one_triangle_exists = !point_lies_in_circle(positions.slice(s![p4, ..]),
+    //                                                                 &center_x, &center_y, &radius);
+
+    //                     if one_triangle_exists {println!("{:?}", base);}
+    //                 }
+                    
+    //                 if one_triangle_exists {
+    //                     println!("deleting {}, {}", base.0, base.1);
+    //                     adjacency_matrix[[base.0, base.1]] = 0.;
+    //                     adjacency_matrix[[base.1, base.0]] = 0.;
+    //                 }
+
+    //             }
+
+    //             if base.2 >= n_vertices - 1 {break 'point3}
+    //             else {base.2 += 1;}
+    //         }
+
+    //         if base.1 >= n_vertices - 1 {break 'point2}
+    //         else {
+    //             base.1 += 1;
+    //             base.2 = 0;
+    //         }
+    //     }
+
+    //     if base.0 >= n_vertices - 2 {break 'point1}
+    //     else {
+    //         base.0 += 1;
+    //         base.1 = base.0 + 1;
+    //         base.2 = 0;
+    //     }
+    // }
