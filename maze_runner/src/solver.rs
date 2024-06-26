@@ -46,7 +46,7 @@ fn dijkstra_solve(adjacency_matrix : Array2<f64>) -> Vec<String> {
     let mut last_node = 0;
 
     while not_visited.len() != 0 {
-
+        
         // get connections at next node
         let connections = adjacency_matrix.slice(s![this_node, ..]);        // get this_node connections
         not_visited.retain(|x| *x != this_node);                            // mark this_node as visited

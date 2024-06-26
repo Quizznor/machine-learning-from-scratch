@@ -150,57 +150,93 @@ fn make_delauney_connections(mut adjacency_matrix : Array2<f64>,
     let n_vertices : usize = positions.raw_dim()[0];
 
     // O(n⁴) go brr
-    let mut base = (0, 1, 2);
+    for p1 in 0..n_vertices {
+        let point1 = positions.slice(s![p1, ..]);
 
-    for x in positions.iter() {
-        println!("{}", x);
-    }
+        for p2 in p1..n_vertices {
+            if p1 == p2 || adjacency_matrix[[p1, p2]] == 0. {continue;}
+            let point2 = positions.slice(s![p2, ..]);
 
-    // while base.0 < n_vertices {
-    //     let point1 = positions.slice(s![base.0, ..]);
-
-    //     while base.1 < n_vertices {
-    //         if base.0 == base.1 || adjacency_matrix[[base.1, base.0]] == 0. {base.1 += 1; continue;}
-
-    //         let point2 = positions.slice(s![base.1, ..]);
-
-    //         // we check for connection (point1, point2) - if it exists
-    //         // for any triangle if any point lies inside the triangle
-    //         while base.2 < n_vertices {
-    //             if base.0 == base.1 || base.0 == base.2 || base.1 == base.2 {base.2 += 1; continue;}
-
-    //             let point3 = positions.slice(s![base.2, ..]);
-    //             let (center_x, center_y, radius) = construct_circumcircle(point1, point2, point3);  
+            // we check for connection (point1, point2) - if it exists, that is -
+            // for any triangle (point3) if any point4 lies inside the triangle
+            let mut empty_triangle_exists = false;
+            for p3 in 0..n_vertices {
+                if p3 == p2 || p3 == p1 {continue;}
+                let point3 = positions.slice(s![p3, ..]);
+                let (cx, cy, r) = construct_circumcircle(point1, point2, point3);  
                 
-    //             let mut no_triangle_exists = true;
-    //             for p4 in 0..n_vertices {
-    //                 if p4 == base.0 || p4 == base.1 || p4 == base.2 {continue;}
-    //             }
+                let mut all_points_outside = true;
+                for p4 in 0..n_vertices {
+                    if all_points_outside && (p4 != p3 || p4 != p2 || p4 != p1) {
+                        if point_lies_in_circle(positions.slice(s![p4, ..]), &cx, &cy, &r) {
+                            all_points_outside = false;
+                        }
+                    }
+                }
 
-    //             base.2 += 1;
-    //         }
+                empty_triangle_exists = empty_triangle_exists || all_points_outside;
+            }
 
-    //         base.1 += 1;
-    //         base.2 = 0;
-    //     }
-
-    //     base.0 += 1;
-    //     base.1 = 0;
-    //     base.2 = 0;
-    // }
-
-    // println!("{}, {}, {}, implement me!", triangle_points.0, triangle_points.1, triangle_points.2);
-
+            if !empty_triangle_exists {
+                adjacency_matrix[[p1, p2]] = 0.;
+                adjacency_matrix[[p1, p2]] = 0.;
+            }
+        }
+    }
+    
     // TODO: implement this
     //  - make 3D projection
     //  - build convex hull
     //  - project to 2D
     //  - tada
-    
+
     return adjacency_matrix;
 }
 
 
+// while base.0 < n_vertices {
+//     let point1 = positions.slice(s![base.0, ..]);
+
+//     while base.1 < n_vertices {
+//         if base.0 == base.1 || adjacency_matrix[[base.1, base.0]] == 0. {base.1 += 1; continue;}
+//         let point2 = positions.slice(s![base.1, ..]);
+
+//         // we check for connection (point1, point2) - if it exists
+//         // for any triangle if any point lies inside the triangle
+//         let mut no_triangle_exists = true;
+        
+//         while base.2 < n_vertices {
+//             if base.0 == base.1 || base.0 == base.2 || base.1 == base.2 {base.2 += 1; continue;}
+//             let point3 = positions.slice(s![base.2, ..]);
+
+//             let (center_x, center_y, radius) = construct_circumcircle(point1, point2, point3);  
+
+//             println!("{:?}", base);
+//             for p4 in 0..n_vertices {
+//                 if p4 == base.0 || p4 == base.1 || p4 == base.2 || !no_triangle_exists {continue;}
+
+//                 if point_lies_in_circle(positions.slice(s![p4, ..]), &center_x, &center_y, &radius) {
+//                     no_triangle_exists = false;
+//                     break;
+//                 }
+//             }
+
+//             base.2 += 1;
+//         }
+
+//         if !no_triangle_exists {
+//             adjacency_matrix[[base.0, base.1]] = 0.;
+//             adjacency_matrix[[base.0, base.1]] = 0.;
+//         }
+
+//         base.1 += 1;
+//         base.2 = 0;
+//     }
+
+//     base.0 += 1;
+//     base.1 = 0;
+//     base.2 = 1;
+// }
 
     // // 'point1 : loop {
     //     let point1 = positions.slice(s![base.0, ..]);

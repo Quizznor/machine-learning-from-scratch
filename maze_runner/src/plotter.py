@@ -23,9 +23,9 @@ def construct_circumcircle(point1, point2, point3):
         radius = np.sqrt((x1 - center_x)**2 + (y1 - center_y)**2)
 
         print('Distances:')
-        print(f'\t{np.sqrt((x1 - center_x)**2 + (y1 - center_x)**2):.4f} for point1')
-        print(f'\t{np.sqrt((x2 - center_x)**2 + (y2 - center_x)**2):.4f} for point2')
-        print(f'\t{np.sqrt((x3 - center_x)**2 + (y3 - center_x)**2):.4f} for point3')
+        print(f'\t{np.sqrt((x1 - center_x)**2 + (y1 - center_y)**2):.4f} for point1')
+        print(f'\t{np.sqrt((x2 - center_x)**2 + (y2 - center_y)**2):.4f} for point2')
+        print(f'\t{np.sqrt((x3 - center_x)**2 + (y3 - center_y)**2):.4f} for point3')
 
         return (center_x, center_y, radius)
 
@@ -44,31 +44,49 @@ def read_minimum_paths(target : str) -> list[int] :
 
     return longest_path, longest_index
 
+def point_is_inside_circumcircle(point, cx, cy, r):
+    return np.sqrt( (point[0] - cx)**2 + (point[1] - cy)**2 ) <= r
+
+
 longest_path, index = read_minimum_paths('minimum_distance_paths.txt')
 
-for i, ((xi, yi), edges) in enumerate(zip(positions, distances), 0):
-    
-    is_start_end_point = i in [0, index + 1]
-    plt.scatter(xi, yi, 
-                c = 'k' if not is_start_end_point else 'r', 
-                s = 20 if not is_start_end_point else 30, 
-                zorder=1
-            )
+if len(sys.argv[1:]) > 0:
+     
+    selected_points = np.array([positions[int(x)] for x in sys.argv[1:]])
+    cx, cy, r = construct_circumcircle(*selected_points)
+    circumcircle = Circle((cx, cy), r, facecolor='none', edgecolor='k')
+    plt.gca().add_patch(circumcircle)
 
-    # for j, (xj, yj) in enumerate(positions[i:], i):
-    #     if distances[i, j] == 0: continue
-    #     plt.plot([xi, xj], [yi, yj], lw=0.8, c='gray', alpha=0.2, zorder=0)
+    colors = ["green" if point_is_inside_circumcircle(p, cx, cy, r) else "red" for p in positions]
+    plt.scatter(positions[:, 0], positions[:, 1], 
+            c = colors,
+            zorder=1
+        )
+    plt.scatter(selected_points[:, 0], selected_points[:, 1], c='blue')
 
-cx, cy, r = construct_circumcircle(*[int(x) for x in sys.argv[1:]])
-plt.scatter(cx, cy, c='g')
-circumcircle = Circle((cx, cy), r, facecolor='none', edgecolor='k')
-plt.gca().add_patch(circumcircle)
+else:
+    for i, ((xi, yi), edges) in enumerate(zip(positions, distances), 0):
+        
+        is_start_end_point = i in [0, index + 1]
+        plt.scatter(xi, yi, 
+                    c = 'k' if not is_start_end_point else 'r', 
+                    s = 20 if not is_start_end_point else 30, 
+                    zorder=1
+                )
 
-# for i in range(len(longest_path) - 1):
-#     xi, yi = positions[i]
-#     xf, yf = positions[i+1]
+        for j, (xj, yj) in enumerate(positions[i:], i):
+            if distances[i, j] == 0: continue
+            plt.plot([xi, xj], [yi, yj], lw=0.8, c='gray', alpha=0.2, zorder=0)
 
-#     plt.plot([xi, xf], [yi, yf], c='r', lw=1.3)
+    # for i in range(len(longest_path) - 1):
+    #     plt.scatter(*positions[i], c='b')
+        
+        # xi, yi = positions[i]
+        # xf, yf = positions[i+1]
+        # plt.plot([xi, xf], [yi, yf], c='r', lw=1.3)
+
 
 plt.gca().set_box_aspect(1.)
+plt.xlim(0, 1)
+plt.ylim(0, 1)
 plt.show()
