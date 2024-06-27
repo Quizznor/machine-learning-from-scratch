@@ -1,0 +1,35 @@
+[tasks.clean]
+command = "cargo"
+args = ["clean"]
+
+[tasks.cleanup]
+dependencies = ["clean"]
+script = '''
+#!/usr/bin/env bash
+rm -rf positions.npy distances.npy graph.png
+'''
+
+[tasks.build]
+command = "cargo"
+args = ["build"]
+
+[tasks.run_rs]
+command = "cargo"
+args = ["run"]
+dependencies = ["build"]
+
+[tasks.run_py]
+script_runner = "python"
+script_extension = "py"
+script = '''
+import os
+
+os.system("python3 src/plotter.py ${@}")
+'''
+
+[tasks.run]
+dependencies = [
+    "build",
+    "run_rs",
+    "run_py"
+]

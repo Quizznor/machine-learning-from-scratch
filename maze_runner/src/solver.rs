@@ -70,7 +70,5 @@ fn dijkstra_solve(adjacency_matrix : Array2<f64>) -> Vec<String> {
         }     
     }
 
-    println!("{:?}", paths);
-
     return paths;
 }

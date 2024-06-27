@@ -62,15 +62,32 @@ if len(sys.argv[1:]) > 0:
             c = colors,
             zorder=1
         )
+
     plt.scatter(selected_points[:, 0], selected_points[:, 1], c='blue')
 
 else:
+
+    print(f"(Longest) shortes path from 0 -> {index}: {longest_path}")
+
+    for i, node in enumerate(longest_path[:-1]):
+        plt.scatter(*positions[node], c='b', zorder=9)
+        
+        xi, yi = positions[node]
+        xf, yf = positions[longest_path[i+1]]
+        plt.plot([xi, xf], [yi, yf], c='r', lw=1.3, zorder=0)
+
     for i, ((xi, yi), edges) in enumerate(zip(positions, distances), 0):
         
         is_start_end_point = i in [0, index + 1]
+        plt.text(xi, yi, str(i), 
+                 horizontalalignment='center',
+                 verticalalignment='center',
+                 fontsize=7,
+                 color='w',
+                 zorder=10)
         plt.scatter(xi, yi, 
                     c = 'k' if not is_start_end_point else 'r', 
-                    s = 20 if not is_start_end_point else 30, 
+                    s = 70, 
                     zorder=1
                 )
 
@@ -78,15 +95,9 @@ else:
             if distances[i, j] == 0: continue
             plt.plot([xi, xj], [yi, yj], lw=0.8, c='gray', alpha=0.2, zorder=0)
 
-    # for i in range(len(longest_path) - 1):
-    #     plt.scatter(*positions[i], c='b')
-        
-        # xi, yi = positions[i]
-        # xf, yf = positions[i+1]
-        # plt.plot([xi, xf], [yi, yf], c='r', lw=1.3)
 
 
 plt.gca().set_box_aspect(1.)
-plt.xlim(0, 1)
-plt.ylim(0, 1)
-plt.show()
+plt.xlim(-0.05, 1.05)
+plt.ylim(-0.05, 1.05)
+plt.savefig("graph.png")
