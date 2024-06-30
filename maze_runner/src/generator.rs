@@ -1,5 +1,7 @@
 use ndarray_rand::{rand_distr::Standard, RandomExt};
 use ndarray_rand::rand_distr::num_traits::Pow;
+use ndarray_rand::rand::SeedableRng;
+use rand_isaac::isaac64::Isaac64Rng;
 use rand::prelude::SliceRandom;
 use ndarray::ArrayView1;
 use ndarray::Array2;
@@ -7,7 +9,8 @@ use ndarray::s;
 
 pub fn make_graph(n_vertices : usize, connectivity : f64, method : &str) -> (Array2<f64>, Array2<f64>) {
 
-    let positions : Array2<f64, > = Array2::<f64>::random((n_vertices, 2), Standard);
+    let mut rng = Isaac64Rng::seed_from_u64(42); 
+    let positions : Array2<f64, > = Array2::<f64>::random_using((n_vertices, 2), Standard, &mut rng);
     let mut adjacency_matrix = make_all_connections(&positions);
 
     match method {
@@ -183,111 +186,6 @@ fn make_delauney_connections(mut adjacency_matrix : Array2<f64>,
             }
         }
     }
-    
-    // TODO: implement this
-    //  - make 3D projection
-    //  - build convex hull
-    //  - project to 2D
-    //  - tada
 
     return adjacency_matrix;
 }
-
-
-// while base.0 < n_vertices {
-//     let point1 = positions.slice(s![base.0, ..]);
-
-//     while base.1 < n_vertices {
-//         if base.0 == base.1 || adjacency_matrix[[base.1, base.0]] == 0. {base.1 += 1; continue;}
-//         let point2 = positions.slice(s![base.1, ..]);
-
-//         // we check for connection (point1, point2) - if it exists
-//         // for any triangle if any point lies inside the triangle
-//         let mut no_triangle_exists = true;
-        
-//         while base.2 < n_vertices {
-//             if base.0 == base.1 || base.0 == base.2 || base.1 == base.2 {base.2 += 1; continue;}
-//             let point3 = positions.slice(s![base.2, ..]);
-
-//             let (center_x, center_y, radius) = construct_circumcircle(point1, point2, point3);  
-
-//             println!("{:?}", base);
-//             for p4 in 0..n_vertices {
-//                 if p4 == base.0 || p4 == base.1 || p4 == base.2 || !no_triangle_exists {continue;}
-
-//                 if point_lies_in_circle(positions.slice(s![p4, ..]), &center_x, &center_y, &radius) {
-//                     no_triangle_exists = false;
-//                     break;
-//                 }
-//             }
-
-//             base.2 += 1;
-//         }
-
-//         if !no_triangle_exists {
-//             adjacency_matrix[[base.0, base.1]] = 0.;
-//             adjacency_matrix[[base.0, base.1]] = 0.;
-//         }
-
-//         base.1 += 1;
-//         base.2 = 0;
-//     }
-
-//     base.0 += 1;
-//     base.1 = 0;
-//     base.2 = 1;
-// }
-
-    // // 'point1 : loop {
-    //     let point1 = positions.slice(s![base.0, ..]);
-
-    //     'point2  : loop {
-    //         let point2 = positions.slice(s![base.1, ..]);
-
-
-            
-
-
-    //         'point3 : loop {
-    //             println!("{:?}", base);
-    //             if adjacency_matrix[[base.0, base.1]] != 0. || base.2 == base.0 || base.2 == base.1 {
-
-    //                 let point3 = positions.slice(s![base.2, ..]);
-    //                 let (center_x, center_y, radius) = construct_circumcircle(point1, point2, point3);  
-    //                 let mut one_triangle_exists: bool = false;
-  
-    //                 for p4 in 0..n_vertices {
-    //                     if p4 == base.0 || p4 == base.1 || p4 == base.2 || one_triangle_exists {continue;}
-                        
-    //                     one_triangle_exists = !point_lies_in_circle(positions.slice(s![p4, ..]),
-    //                                                                 &center_x, &center_y, &radius);
-
-    //                     if one_triangle_exists {println!("{:?}", base);}
-    //                 }
-                    
-    //                 if one_triangle_exists {
-    //                     println!("deleting {}, {}", base.0, base.1);
-    //                     adjacency_matrix[[base.0, base.1]] = 0.;
-    //                     adjacency_matrix[[base.1, base.0]] = 0.;
-    //                 }
-
-    //             }
-
-    //             if base.2 >= n_vertices - 1 {break 'point3}
-    //             else {base.2 += 1;}
-    //         }
-
-    //         if base.1 >= n_vertices - 1 {break 'point2}
-    //         else {
-    //             base.1 += 1;
-    //             base.2 = 0;
-    //         }
-    //     }
-
-    //     if base.0 >= n_vertices - 2 {break 'point1}
-    //     else {
-    //         base.0 += 1;
-    //         base.1 = base.0 + 1;
-    //         base.2 = 0;
-    //     }
-    // }

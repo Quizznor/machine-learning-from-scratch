@@ -4,7 +4,7 @@ mod solver;
 
 fn main() {
 
-    const N_VERTICES : usize = 100;    // the way the code is structured we can only do 10 =(
+    const N_VERTICES : usize = 40;
     const CONNECTIVITY : f64 = 0.2;    // mustn't be too low to ensure a fully connected graph 
     
     const CREATE_METHOD : &str = "delauney";      // method used to construct graph vertices   
@@ -17,8 +17,8 @@ fn main() {
     write_npy("distances.npy", &adjacency_matrix)
         .expect("Failed to write distances to file =(");
     
-    let min_distance_paths = solver::solve_graph(adjacency_matrix, SOLVE_METHOD);
-    let _ = solver::write_to_file(min_distance_paths, "minimum_distance_paths.txt");
+    let (paths, distances) = solver::solve_graph(adjacency_matrix, SOLVE_METHOD);
+    let _ = solver::write_to_file(paths, distances, "minimum_distance_paths.txt");
 
     // design goal
     //     -> generate weighted graph using generator.rs -- DONE

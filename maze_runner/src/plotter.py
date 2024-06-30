@@ -29,17 +29,19 @@ def construct_circumcircle(point1, point2, point3):
 
         return (center_x, center_y, radius)
 
-def read_minimum_paths(target : str) -> list[int] :
+def read_paths(target : str) -> list[int] :
     
-    longest_index, longest_len = -1, 0
+    longest_index, longest_distance = -1, -np.inf
 
     with open(target, 'r') as f:
         for i, line in enumerate(f.readlines()):
-            line = [int(x) for x in line.strip().split(',')[1:]]
+            line = line.strip().split(',')
+            path = [int(x) for x in line[:-1]]
+            distance = float(line[-1])
             
-            if len(line) > longest_len:
-                longest_len = len(line)
-                longest_path = line
+            if distance > longest_distance:
+                longest_distance = distance
+                longest_path = path
                 longest_index = i
 
     return longest_path, longest_index
@@ -48,7 +50,7 @@ def point_is_inside_circumcircle(point, cx, cy, r):
     return np.sqrt( (point[0] - cx)**2 + (point[1] - cy)**2 ) <= r
 
 
-longest_path, index = read_minimum_paths('minimum_distance_paths.txt')
+longest_path, index = read_paths('minimum_distance_paths.txt')
 
 if len(sys.argv[1:]) > 0:
      
@@ -63,14 +65,14 @@ if len(sys.argv[1:]) > 0:
             zorder=1
         )
 
-    plt.scatter(selected_points[:, 0], selected_points[:, 1], c='blue')
+    plt.scatter(selected_points[:, 0], selected_points[:, 1], c='blue', s=70)
 
 else:
 
     print(f"(Longest) shortes path from 0 -> {index}: {longest_path}")
 
     for i, node in enumerate(longest_path[:-1]):
-        plt.scatter(*positions[node], c='b', zorder=9)
+        plt.scatter(*positions[node], c='b', zorder=9, s=70)
         
         xi, yi = positions[node]
         xf, yf = positions[longest_path[i+1]]
@@ -78,7 +80,7 @@ else:
 
     for i, ((xi, yi), edges) in enumerate(zip(positions, distances), 0):
         
-        is_start_end_point = i in [0, index + 1]
+        is_start_end_point = i in [0, index]
         plt.text(xi, yi, str(i), 
                  horizontalalignment='center',
                  verticalalignment='center',
