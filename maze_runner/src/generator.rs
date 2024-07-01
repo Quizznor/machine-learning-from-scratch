@@ -9,7 +9,7 @@ use ndarray::s;
 
 pub fn make_graph(n_vertices : usize, connectivity : f64, method : &str) -> (Array2<f64>, Array2<f64>) {
 
-    let mut rng = Isaac64Rng::seed_from_u64(42); 
+    let mut rng = Isaac64Rng::seed_from_u64(1); 
     let positions : Array2<f64, > = Array2::<f64>::random_using((n_vertices, 2), Standard, &mut rng);
     let mut adjacency_matrix = make_all_connections(&positions);
 
@@ -24,7 +24,7 @@ pub fn make_graph(n_vertices : usize, connectivity : f64, method : &str) -> (Arr
             adjacency_matrix = make_delauney_connections(adjacency_matrix, &positions);
         }
 
-        _ => {println!("method not implemented");}
+        _ => {todo!("method not implemented");}
     }
 
     return (positions, adjacency_matrix);
@@ -127,6 +127,9 @@ fn make_planar_connections(mut adjacency_matrix : Array2<f64>,
 fn make_delauney_connections(mut adjacency_matrix : Array2<f64>, 
     positions : &Array2<f64>, ) -> Array2<f64> {
 
+    let n_vertices : usize = positions.raw_dim()[0];
+    let mut new_adjacency_matrix = Array2::<f64>::zeros((n_vertices, n_vertices));
+
     fn construct_circumcircle(point1 : ArrayView1<f64>,
                               point2 : ArrayView1<f64>,
                               point3 : ArrayView1<f64>) -> (f64, f64, f64) {
@@ -146,7 +149,7 @@ fn make_delauney_connections(mut adjacency_matrix : Array2<f64>,
     }
 
     fn point_lies_in_circle(point : ArrayView1<f64>, 
-        center_x : &f64, center_y : &f64, radius : &f64) -> bool {
+        (center_x, center_y, radius) : &(f64, f64, f64)) -> bool {
             return (((point[0] - center_x).pow(2.) + (point[1] - center_y).pow(2.)) as f64).pow(0.5) < *radius;
     }
     
@@ -157,35 +160,36 @@ fn make_delauney_connections(mut adjacency_matrix : Array2<f64>,
         let point1 = positions.slice(s![p1, ..]);
 
         for p2 in p1..n_vertices {
-            if p1 == p2 || adjacency_matrix[[p1, p2]] == 0. {continue;}
+            if p1 == p2 {continue;}
             let point2 = positions.slice(s![p2, ..]);
 
-            // we check for connection (point1, point2) - if it exists, that is -
-            // for any triangle (point3) if any point4 lies inside the triangle
-            let mut empty_triangle_exists = false;
             for p3 in 0..n_vertices {
                 if p3 == p2 || p3 == p1 {continue;}
                 let point3 = positions.slice(s![p3, ..]);
-                let (cx, cy, r) = construct_circumcircle(point1, point2, point3);  
-                
-                let mut all_points_outside = true;
+                let circumcircle = construct_circumcircle(point1, point2, point3);  
+
+                let mut point_outside = true;
                 for p4 in 0..n_vertices {
-                    if all_points_outside && (p4 != p3 || p4 != p2 || p4 != p1) {
-                        if point_lies_in_circle(positions.slice(s![p4, ..]), &cx, &cy, &r) {
-                            all_points_outside = false;
+                    if point_outside && p4 != p3 && p4 != p2 && p4 != p1 {
+                        point_outside = point_lies_in_circle(positions.slice(s![p4, ..]), &circumcircle);
+                        
+                        if p1 == 0 && p2 == 3 && p3 == 17 && !point_outside {
+                            println!("point outside is {}", p4);
                         }
                     }
                 }
 
-                empty_triangle_exists = empty_triangle_exists || all_points_outside;
-            }
-
-            if !empty_triangle_exists {
-                adjacency_matrix[[p1, p2]] = 0.;
-                adjacency_matrix[[p1, p2]] = 0.;
+                if point_outside {
+                    new_adjacency_matrix[[p1, p2]] = adjacency_matrix[[p1, p2]];
+                    new_adjacency_matrix[[p2, p1]] = adjacency_matrix[[p2, p1]];
+                    new_adjacency_matrix[[p1, p3]] = adjacency_matrix[[p1, p3]];
+                    new_adjacency_matrix[[p3, p1]] = adjacency_matrix[[p3, p1]];
+                    new_adjacency_matrix[[p2, p3]] = adjacency_matrix[[p2, p3]];
+                    new_adjacency_matrix[[p3, p2]] = adjacency_matrix[[p3, p2]];
+                }
             }
         }
     }
 
-    return adjacency_matrix;
+    return new_adjacency_matrix;
 }

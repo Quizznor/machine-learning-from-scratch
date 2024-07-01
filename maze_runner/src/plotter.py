@@ -96,9 +96,7 @@ else:
         for j, (xj, yj) in enumerate(positions[i:], i):
             if distances[i, j] == 0: continue
             plt.plot([xi, xj], [yi, yj], lw=0.8, c='gray', alpha=0.2, zorder=0)
-
-
-
+            
 plt.gca().set_box_aspect(1.)
 plt.xlim(-0.05, 1.05)
 plt.ylim(-0.05, 1.05)
