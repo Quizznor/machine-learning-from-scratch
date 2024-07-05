@@ -52,25 +52,17 @@ fn dijkstra_solve(adjacency_matrix : Array2<f64>) -> (Vec<String>, Array1<f64>) 
         let connections: ArrayView1<f64> = adjacency_matrix.slice(s![this_node, ..]);        // get this_node connections
         not_visited.retain(|x| *x != this_node);                    // mark this_node as visited
 
-        print!("Connections at node {}: (", this_node);
+        // print!("Connections at node {}: (", this_node);
         for (n, this_length) in connections.iter().enumerate() {
             if *this_length == 0. {continue;}
 
-            print!(" {}", n);
+            // print!(" {}", n);
             if distances[this_node] + this_length < distances[n] {
                 distances[n] = distances[this_node] + connections[n];// update distances
                 paths[n] = format!("{},{}", paths[this_node], n);   // save path info 
             }
         }
-        print!(")\n");
-
-        // for &n in not_visited.iter() {
-
-        //     if connections[n] != 0. && (distances[this_node] + connections[n]) < distances[n] {
-        //         distances[n] = distances[this_node] + connections[n];       // update distances
-        //         paths[n] = format!("{},{}", paths[this_node], n);   // save path info 
-        //     }
-        // }
+        // print!(")\n");
         
         // find next node
         let mut min_distance: f64 = f64::INFINITY;
