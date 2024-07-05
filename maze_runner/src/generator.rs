@@ -9,7 +9,8 @@ use ndarray::s;
 
 pub fn make_graph(n_vertices : usize, connectivity : f64, method : &str) -> (Array2<f64>, Array2<f64>) {
 
-    let mut rng = Isaac64Rng::seed_from_u64(1); 
+    // let mut rng = Isaac64Rng::seed_from_u64(69);
+    let mut rng = rand::thread_rng();
     let positions : Array2<f64, > = Array2::<f64>::random_using((n_vertices, 2), Standard, &mut rng);
     let mut adjacency_matrix = make_all_connections(&positions);
 
@@ -150,7 +151,7 @@ fn make_delauney_connections(mut adjacency_matrix : Array2<f64>,
 
     fn point_lies_in_circle(point : ArrayView1<f64>, 
         (center_x, center_y, radius) : &(f64, f64, f64)) -> bool {
-            return (((point[0] - center_x).pow(2.) + (point[1] - center_y).pow(2.)) as f64).pow(0.5) < *radius;
+            return (((point[0] - center_x).pow(2.) + (point[1] - center_y).pow(2.)) as f64).pow(0.5) > *radius;
     }
     
     let n_vertices : usize = positions.raw_dim()[0];
@@ -172,10 +173,6 @@ fn make_delauney_connections(mut adjacency_matrix : Array2<f64>,
                 for p4 in 0..n_vertices {
                     if point_outside && p4 != p3 && p4 != p2 && p4 != p1 {
                         point_outside = point_lies_in_circle(positions.slice(s![p4, ..]), &circumcircle);
-                        
-                        if p1 == 0 && p2 == 3 && p3 == 17 && !point_outside {
-                            println!("point outside is {}", p4);
-                        }
                     }
                 }
 
