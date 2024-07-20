@@ -1,4 +1,3 @@
-mod algorithm;
 use std::env;
 mod image;
 mod utl;
@@ -15,9 +14,11 @@ pub fn main() {
     #[cfg(debug_assertions)]
     utl::save_gray_image(&grayscale, &(image.to_owned() + "_grayscale"));
     
-    let edges = algorithm::sobel_operator(grayscale);
+    let edges = utl::sobel_operator(grayscale);
 
     #[cfg(debug_assertions)]
     utl::save_gray_image(&edges, &(image.to_owned() + "_edges"));
+
+    let point_pdf = utl::normalize(edges);
     
 }
