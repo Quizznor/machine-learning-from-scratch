@@ -3,6 +3,9 @@ use ndarray::{array, Array1};
 use ::image::GrayImage;
 use image::ImageFormat::Png;
 use std::{io, io::Write};
+use delaunator::{triangulate, Point};
+use plotters::prelude::*;
+use rand::Rng;
 
 pub fn save_gray_image(target: &Array2<u8>, name: &str) -> () {
 
@@ -14,6 +17,59 @@ pub fn save_gray_image(target: &Array2<u8>, name: &str) -> () {
         .save_with_format("out/".to_owned() + name + ".png", Png)
         .expect("Couldn't save image from provided arguments")
 }
+
+pub fn save_mesh_image(mesh_info: &(Vec<Point>, Vec<usize>), dimensions: (usize, usize), name: &str) -> () {
+
+    let (points, triangles) = mesh_info;
+
+    let image_name = "out/".to_owned() + name + ".png";
+    let image = BitMapBackend::new(&image_name, (dimensions.0 as u32, dimensions.1 as u32)).into_drawing_area();
+    image.fill(&WHITE).unwrap();
+
+    let mut chart = ChartBuilder::on(&image)
+        .x_label_area_size(0)
+        .y_label_area_size(0)
+        .build_cartesian_2d(0.0..dimensions.0 as f64, 0.0..dimensions.1 as f64)
+        .unwrap();
+
+    for i in (0..triangles.len()).step_by(3) {
+
+        let mut triangle = triangles[i..i+3].iter().map(|p| (points[*p].x, points[*p].y)).collect::<Vec<(f64, f64)>>();
+        triangle.push((points[triangles[i]].x, points[triangles[i]].y));
+
+        chart.draw_series(LineSeries::new(
+            triangle,
+            &RED,
+        )).unwrap();
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
 
@@ -59,7 +115,43 @@ pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
     edges
 }
 
-pub fn make_marginal_pdfs(source: Array2<u8>) -> (Array1<f64>, Array1<f64>) {
+pub fn create_mesh(source: Array2<u8>, n_points: usize) -> (Vec<Point>, Vec<usize>) {
+
+    print!("try building delauney mesh...");
+    let _ = io::stdout().flush();
+
+    let mut rng = rand::thread_rng();
+    let (pdf_x, pdf_y) = make_marginal_pdfs(source);
+    let array_shape = (pdf_x.len(), pdf_y.len());
+
+    // perform rejection sampling
+    let mut points = Vec::<Point>::new();
+    
+    loop {
+
+        let (mut x, mut y): (usize, usize);
+        loop {
+            x = rng.gen_range(0..array_shape.0);
+            if rng.gen_range(0.0..1.0) <= pdf_x[[x]] {break;}
+        }
+
+        loop {
+            y = rng.gen_range(0..array_shape.1);
+            if rng.gen_range(0.0..1.0) <= pdf_y[[y]] {break;}
+        }
+
+        points.push(Point{ x: x as f64, y: y as f64 });
+        if points.len() == n_points {break;}
+    }
+
+    let triangulation = triangulate(&points);
+    println!("DONE");
+
+    (points, triangulation.triangles)
+}
+
+fn make_marginal_pdfs(source: Array2<u8>) -> (Array1<f64>, Array1<f64>) {
+
     let weight: f64 = source.mapv(|x| f64::from(x)).sum();
     let array_shape = source.dim();
 

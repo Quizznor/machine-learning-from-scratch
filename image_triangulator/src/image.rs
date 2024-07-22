@@ -12,7 +12,7 @@ pub struct Image {
 impl From<&str> for Image {
     fn from(image: &str) -> Self {
 
-        print!("Reading image into vectors...");
+        print!("reading image into vectors...");
         let _ = io::stdout().flush();
 
         let image = open(image)

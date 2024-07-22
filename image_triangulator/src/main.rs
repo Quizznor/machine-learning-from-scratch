@@ -10,6 +10,7 @@ pub fn main() {
 
     let original_image = image::Image::from(image);
     let grayscale = original_image.to_grayscale();
+    let dimensions = grayscale.dim();
     
     #[cfg(debug_assertions)]
     utl::save_gray_image(&grayscale, &(image.to_owned() + "_grayscale"));
@@ -19,6 +20,9 @@ pub fn main() {
     #[cfg(debug_assertions)]
     utl::save_gray_image(&edges, &(image.to_owned() + "_edges"));
 
-    let (pdf_x, pdf_y) = utl::make_marginal_pdfs(edges);
+    let mesh = utl::create_mesh(edges, 5000);
+
+    #[cfg(debug_assertions)]
+    utl::save_mesh_image(&mesh, dimensions, &(image.to_owned() + "_mesh"));
     
 }
