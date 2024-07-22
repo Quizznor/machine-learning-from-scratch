@@ -1,7 +1,8 @@
 use ndarray::{s, Array2};
-use ndarray::array;
+use ndarray::{array, Array1};
 use ::image::GrayImage;
 use image::ImageFormat::Png;
+use std::{io, io::Write};
 
 pub fn save_gray_image(target: &Array2<u8>, name: &str) -> () {
 
@@ -16,7 +17,8 @@ pub fn save_gray_image(target: &Array2<u8>, name: &str) -> () {
 
 pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
 
-    println!("searching for object edges...");
+    print!("searching for object edges...");
+    let _ = io::stdout().flush();
 
     let x_filter: Array2<f64> = array![
         [ -5., -4.,  0.,  4.,  5.], 
@@ -52,10 +54,17 @@ pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
         }
     }
 
+    println!("DONE");
+
     edges
 }
 
-pub fn normalize(source: Array2<u8>) -> Array2<f64> {
-    let weight: f64 = source.sum() as f64;
-    source.mapv(|x| f64::from(x) / weight)
+pub fn make_marginal_pdfs(source: Array2<u8>) -> (Array1<f64>, Array1<f64>) {
+    let weight: f64 = source.mapv(|x| f64::from(x)).sum();
+    let array_shape = source.dim();
+
+    let pdf_x = (0..array_shape.0).map(|x| source.column(x).mapv(|x| f64::from(x)).sum() / weight).collect::<Array1<f64>>();
+    let pdf_y = (0..array_shape.1).map(|x| source.row(x).mapv(|x| f64::from(x)).sum() / weight).collect::<Array1<f64>>();
+
+    (pdf_x, pdf_y)
 }

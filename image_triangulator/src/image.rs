@@ -1,5 +1,6 @@
 use image::open;
 use ndarray::{Array1, Array2, Array3};
+use std::{io, io::Write};
 
 pub struct Image {
 
@@ -10,6 +11,9 @@ pub struct Image {
 
 impl From<&str> for Image {
     fn from(image: &str) -> Self {
+
+        print!("Reading image into vectors...");
+        let _ = io::stdout().flush();
 
         let image = open(image)
         .expect(&format!("Couldn't open image: {}", image))
@@ -24,6 +28,8 @@ impl From<&str> for Image {
             .into_shape((height as usize, width as usize, 3))
             .expect("Couldn't convert to ndarray =(");
 
+        println!("DONE");
+
         Image {
             height, 
             width,
@@ -33,13 +39,11 @@ impl From<&str> for Image {
 }
 
 impl Image {
-    // pub fn get_sub_array(&self, x : usize, y : usize) -> ArrayView3<u8> {
-    //     self.pixels.slice(s![x..x+5, y..y+5, ..])
-    // }
-
+    
     pub fn to_grayscale(&self) -> Array2<u8> {
 
-        println!("generating grayscale image...");
+        print!("generating grayscale image...");
+        let _ = io::stdout().flush();
 
         let mut out_array = Array2::<u8>::zeros((self.height as usize, self.width as usize));
 
@@ -48,6 +52,8 @@ impl Image {
                 out_array[[i_row, i_col]] = (0.299 * col[[0]] as f64 + 0.578 * col[[1]] as f64 + 0.114 * col[[2]] as f64) as u8;
             }
         }
+
+        println!("DONE");
 
         out_array
     }
