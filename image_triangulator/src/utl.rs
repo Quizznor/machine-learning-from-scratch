@@ -18,7 +18,7 @@ pub fn save_gray_image(target: &Array2<u8>, name: &str) -> () {
         .expect("Couldn't save image from provided arguments")
 }
 
-pub fn save_mesh_image(mesh_info: &(Vec<Point>, Vec<usize>), dimensions: (usize, usize), name: &str) -> () {
+pub fn save_mesh_image(mesh_info: &(Vec<Point>, Vec<Vec<usize>>), dimensions: (usize, usize), name: &str) -> () {
 
     let (points, triangles) = mesh_info;
 
@@ -32,10 +32,10 @@ pub fn save_mesh_image(mesh_info: &(Vec<Point>, Vec<usize>), dimensions: (usize,
         .build_cartesian_2d(0.0..dimensions.0 as f64, 0.0..dimensions.1 as f64)
         .unwrap();
 
-    for i in (0..triangles.len()).step_by(3) {
+    for tt in triangles.iter() {
 
-        let mut triangle = triangles[i..i+3].iter().map(|p| (points[*p].x, points[*p].y)).collect::<Vec<(f64, f64)>>();
-        triangle.push((points[triangles[i]].x, points[triangles[i]].y));
+        let mut triangle = tt.iter().map(|p| (points[*p].x, points[*p].y)).collect::<Vec<(f64, f64)>>();
+        triangle.push((points[tt[0]].x, points[tt[0]].y));
 
         chart.draw_series(LineSeries::new(
             triangle,
@@ -44,32 +44,6 @@ pub fn save_mesh_image(mesh_info: &(Vec<Point>, Vec<usize>), dimensions: (usize,
     }
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
 
@@ -96,7 +70,6 @@ pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
     let mut edges = Array2::<u8>::zeros((width - 3, height - 3));
 
     // TODO: look for a better way to do this
-
     for iw in 2..width-3 {
         for ih in 2..height-3 {
 
@@ -115,7 +88,7 @@ pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
     edges
 }
 
-pub fn create_mesh(source: Array2<u8>, n_points: usize) -> (Vec<Point>, Vec<usize>) {
+pub fn create_mesh(source: Array2<u8>, n_points: usize) -> (Vec<Point>, Vec<Vec<usize>>) {
 
     print!("try building delauney mesh...");
     let _ = io::stdout().flush();
@@ -130,12 +103,12 @@ pub fn create_mesh(source: Array2<u8>, n_points: usize) -> (Vec<Point>, Vec<usiz
     loop {
 
         let (mut x, mut y): (usize, usize);
-        loop {
+        loop { // make x coordinate
             x = rng.gen_range(0..array_shape.0);
             if rng.gen_range(0.0..1.0) <= pdf_x[[x]] {break;}
         }
 
-        loop {
+        loop { // make y coordinate
             y = rng.gen_range(0..array_shape.1);
             if rng.gen_range(0.0..1.0) <= pdf_y[[y]] {break;}
         }
@@ -145,9 +118,10 @@ pub fn create_mesh(source: Array2<u8>, n_points: usize) -> (Vec<Point>, Vec<usiz
     }
 
     let triangulation = triangulate(&points);
+
     println!("DONE");
 
-    (points, triangulation.triangles)
+    (points, triangulation.triangles.chunks(3).map(|s| s.into()).collect())
 }
 
 fn make_marginal_pdfs(source: Array2<u8>) -> (Array1<f64>, Array1<f64>) {

@@ -20,7 +20,7 @@ pub fn main() {
     #[cfg(debug_assertions)]
     utl::save_gray_image(&edges, &(image.to_owned() + "_edges"));
 
-    let mesh = utl::create_mesh(edges, 5000);
+    let mesh = utl::create_mesh(edges, 500);
 
     #[cfg(debug_assertions)]
     utl::save_mesh_image(&mesh, dimensions, &(image.to_owned() + "_mesh"));
