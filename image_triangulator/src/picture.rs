@@ -1,27 +1,28 @@
 use image::open;
 use ndarray::{Array1, Array2, Array3};
+use ndarray::{ArrayView1, s};
 use std::{io, io::Write};
 
-pub struct Image {
+pub struct Picture {
 
     height : u32,
     width : u32,
     pixels : Array3<u8>,
 }
 
-impl From<&str> for Image {
-    fn from(image: &str) -> Self {
+impl From<&str> for Picture {
+    fn from(picture: &str) -> Self {
 
         print!("reading image into vectors...");
         let _ = io::stdout().flush();
 
-        let image = open(image)
-        .expect(&format!("Couldn't open image: {}", image))
+        let picture = open(picture)
+        .expect(&format!("Couldn't open image: {}", picture))
         .into_rgb8();
 
-        let (height, width) = image.dimensions();
+        let (height, width) = picture.dimensions();
         let pixels_tmp = Array1::from(
-            image.into_vec()
+            picture.into_vec()
         );
 
         let pixels = pixels_tmp
@@ -30,7 +31,7 @@ impl From<&str> for Image {
 
         println!("DONE");
 
-        Image {
+        Picture {
             height, 
             width,
             pixels,
@@ -38,8 +39,8 @@ impl From<&str> for Image {
     }
 }
 
-impl Image {
-    
+impl Picture {
+
     pub fn to_grayscale(&self) -> Array2<u8> {
 
         print!("generating grayscale image...");
@@ -56,5 +57,32 @@ impl Image {
         println!("DONE");
 
         out_array
+    }
+
+    pub fn dimension(&self) -> (usize, usize) {
+        (self.width as usize, self.height as usize)
+    }
+
+    pub fn get_pixel(&self, idx: usize, idy: usize) -> ArrayView1<u8> {
+        self.pixels.slice(s![idx, idy, ..])
+    }
+
+    pub fn save(&self, path: &str) -> () {
+        
+    }
+
+    pub fn apply_colormap(&mut self, color_information: (Array2<u8>, Array2<usize>)) -> &Self {
+
+        let (colors, lookup_table) = color_information;
+
+        for w in 0..self.dimension().0 {
+            for h in 0..self.dimension().1 {
+                self.pixels[[w, h, 0]] = colors[[lookup_table[[w, h]], 0]];
+                self.pixels[[w, h, 1]] = colors[[lookup_table[[w, h]], 1]];
+                self.pixels[[w, h, 2]] = colors[[lookup_table[[w, h]], 2]];
+            }
+        }
+
+        self
     }
 }

@@ -1,14 +1,13 @@
 use std::env;
-mod image;
+mod picture;
 mod utl;
-
 
 pub fn main() {
 
     let args: Vec<String> = env::args().collect();
     let image: &str = &args[1];
 
-    let original_image = image::Image::from(image);
+    let mut original_image = picture::Picture::from(image);
     let grayscale = original_image.to_grayscale();
     let dimensions = grayscale.dim();
     
@@ -24,5 +23,10 @@ pub fn main() {
 
     #[cfg(debug_assertions)]
     utl::save_mesh_image(&mesh, dimensions, &(image.to_owned() + "_mesh"));
+
+    let color_information = utl::sort_pixels_into_triangles(&original_image, mesh);
+
+    original_image.apply_colormap(color_information);
+    original_image.into(&(image.to_owned() + "_triangulation.png"));
     
 }
