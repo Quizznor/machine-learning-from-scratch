@@ -23,8 +23,8 @@ struct Cli {
 pub fn main() {
     let args = Cli::parse();
 
-    let mut original_image = picture::Picture::from(&args.image);
-    let grayscale = original_image.to_grayscale();
+    let mut original_image = runtime!(picture::Picture::from(&args.image), "reading image into vectors");
+    let grayscale = runtime!(original_image.to_grayscale(), "generating grayscale image");
 
     // determine triangulation parameters
     let dimensions = grayscale.dim();
@@ -33,18 +33,18 @@ pub fn main() {
     #[cfg(debug_assertions)]
     utl::save_gray_image(&grayscale, &(args.image.to_owned() + "_grayscale"));
 
-    let edges = utl::sobel_operator(grayscale);
+    let edges = runtime!(utl::sobel_operator(grayscale), "searching for object edges");
 
     #[cfg(debug_assertions)]
     utl::save_gray_image(&edges, &(args.image.to_owned() + "_edges"));
 
-    let mesh = utl::create_mesh(edges, n_triangles, args.power);
+    let mesh = runtime!(utl::create_mesh(edges, n_triangles, args.power), "try building delauney mesh");
 
     #[cfg(debug_assertions)]
     utl::save_mesh_image(&mesh, dimensions, &(args.image.to_owned() + "_mesh"));
 
-    let color_information = utl::sort_pixels_into_triangles(&original_image, mesh);
+    let color_information = runtime!(utl::sort_pixels_into_triangles(&original_image, mesh), "sorting pixels and colours");
 
-    original_image.apply_colormap(color_information);
-    original_image.save(&(args.image.to_owned() + "_triangulation"));
+    runtime!(original_image.apply_colormap(color_information), "apply colormap to image");
+    runtime!(original_image.save(&(args.image.to_owned() + "_triangulation")), "saving triangulated picture");
 }

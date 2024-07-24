@@ -5,9 +5,22 @@ use ndarray::{array, Array1};
 use ndarray::{s, Array2};
 use plotters::prelude::*;
 use rand::Rng;
-use std::{io, io::Write};
 
 use crate::picture::Picture;
+
+#[macro_export]
+macro_rules! runtime {
+    ($fctn:expr, $name:literal) => [{
+
+        let start = ::std::time::Instant::now();
+        let rv = $fctn;
+        let duration = start.elapsed();
+
+        println!("{:.<40}: DONE! ({:#?})", $name, duration);
+
+        rv
+    }];
+}
 
 pub fn save_gray_image(target: &Array2<u8>, name: &str) -> () {
     let (width, height) = target.dim();
@@ -49,8 +62,6 @@ pub fn save_mesh_image(
 }
 
 pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
-    print!("searching for object edges...");
-    let _ = io::stdout().flush();
 
     let x_filter: Array2<f64> = array![
         [-5., -4., 0., 4., 5.],
@@ -84,14 +95,10 @@ pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
         }
     }
 
-    println!("DONE");
-
     edges
 }
 
 pub fn create_mesh(source: Array2<u8>, n_points: usize, power: f64) -> (Vec<Point>, Vec<Vec<usize>>) {
-    print!("try building delauney mesh...");
-    let _ = io::stdout().flush();
 
     let mut rng = rand::thread_rng();
     let (pdf_x, pdf_y) = make_marginal_pdfs(source);
@@ -100,6 +107,7 @@ pub fn create_mesh(source: Array2<u8>, n_points: usize, power: f64) -> (Vec<Poin
     // perform rejection sampling
     let mut points = Vec::<Point>::new();
 
+    // revisit this
     loop {
         let (mut x, mut y): (usize, usize);
         loop {
@@ -129,8 +137,6 @@ pub fn create_mesh(source: Array2<u8>, n_points: usize, power: f64) -> (Vec<Poin
 
     let triangulation = triangulate(&points);
 
-    println!("DONE");
-
     (
         points,
         triangulation
@@ -145,8 +151,6 @@ pub fn sort_pixels_into_triangles(
     original_image: &Picture,
     mesh_info: (Vec<Point>, Vec<Vec<usize>>),
 ) -> (Array2<u8>, Array2<usize>) {
-    print!("sorting pixels and colours...");
-    let _ = io::stdout().flush();
 
     let (points, triangles) = mesh_info;
     let mut colors = Array2::<u64>::zeros((triangles.len(), 3));
@@ -192,8 +196,6 @@ pub fn sort_pixels_into_triangles(
         colors[[i, 1]] /= triangle_pixel_counts[[i]] as u64;
         colors[[i, 2]] /= triangle_pixel_counts[[i]] as u64;
     }
-
-    println!("DONE");
 
     (
         colors.mapv(|x| u8::try_from(x).expect(&format!("{} encountered", x))),

@@ -11,8 +11,6 @@ pub struct Picture {
 
 impl From<&String> for Picture {
     fn from(picture: &String) -> Self {
-        print!("reading image into vectors...");
-        let _ = io::stdout().flush();
 
         let picture = open(&picture)
             .expect(&format!("Couldn't open image: {}", picture))
@@ -25,8 +23,6 @@ impl From<&String> for Picture {
             .into_shape((height as usize, width as usize, 3))
             .expect("Couldn't convert to ndarray =(");
 
-        println!("DONE");
-
         Picture {
             height,
             width,
@@ -37,8 +33,6 @@ impl From<&String> for Picture {
 
 impl Picture {
     pub fn to_grayscale(&self) -> Array2<u8> {
-        print!("generating grayscale image...");
-        let _ = io::stdout().flush();
 
         let mut out_array = Array2::<u8>::zeros((self.height as usize, self.width as usize));
 
@@ -49,8 +43,6 @@ impl Picture {
                     + 0.114 * col[[2]] as f64) as u8;
             }
         }
-
-        println!("DONE");
 
         out_array
     }
