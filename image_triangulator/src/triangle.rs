@@ -27,7 +27,7 @@ impl Triangle {
         }
     }
 
-    pub fn coordinates(&self) -> Vec<(f64, f64)> {
+    pub fn get_path(&self) -> Vec<(f64, f64)> {
         vec![
             (self.p1.x, self.p1.y),
             (self.p2.x, self.p2.y),

@@ -51,7 +51,7 @@ pub fn save_mesh_image(
         .unwrap();
 
     for tt in mesh.iter() {
-        chart.draw_series(LineSeries::new(tt.coordinates(), &RED)).unwrap();
+        chart.draw_series(LineSeries::new(tt.get_path(), &RED)).unwrap();
     }
 }
 
