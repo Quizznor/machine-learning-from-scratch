@@ -7,6 +7,7 @@ use plotters::prelude::*;
 use rand::Rng;
 
 use crate::picture::Picture;
+use crate::triangle::Triangle;
 
 #[macro_export]
 macro_rules! runtime {
@@ -33,11 +34,10 @@ pub fn save_gray_image(target: &Array2<u8>, name: &str) -> () {
 }
 
 pub fn save_mesh_image(
-    mesh_info: &(Vec<Point>, Vec<Vec<usize>>),
+    mesh: &Vec<Triangle>,
     dimensions: (usize, usize),
     name: &str,
 ) -> () {
-    let (points, triangles) = mesh_info;
 
     let image_name = "out/".to_owned() + name + ".png";
     let image = BitMapBackend::new(&image_name, (dimensions.0 as u32, dimensions.1 as u32))
@@ -50,14 +50,8 @@ pub fn save_mesh_image(
         .build_cartesian_2d(0.0..dimensions.0 as f64, 0.0..dimensions.1 as f64)
         .unwrap();
 
-    for tt in triangles.iter() {
-        let mut triangle = tt
-            .iter()
-            .map(|p| (points[*p].x, points[*p].y))
-            .collect::<Vec<(f64, f64)>>();
-        triangle.push((points[tt[0]].x, points[tt[0]].y));
-
-        chart.draw_series(LineSeries::new(triangle, &RED)).unwrap();
+    for tt in mesh.iter() {
+        chart.draw_series(LineSeries::new(tt.coordinates(), &RED)).unwrap();
     }
 }
 
@@ -98,7 +92,7 @@ pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
     edges
 }
 
-pub fn create_mesh(source: Array2<u8>, n_points: usize, power: f64) -> (Vec<Point>, Vec<Vec<usize>>) {
+pub fn create_mesh(source: Array2<u8>, n_points: usize, power: f64) -> Vec<Triangle> {
 
     let mut rng = rand::thread_rng();
     let (pdf_x, pdf_y) = make_marginal_pdfs(source);
@@ -135,63 +129,51 @@ pub fn create_mesh(source: Array2<u8>, n_points: usize, power: f64) -> (Vec<Poin
         }
     }
 
-    let triangulation = triangulate(&points);
+    let triangulation = triangulate(&points).triangles;
+    let mut triangles = Vec::<Triangle>::new();
 
-    (
-        points,
-        triangulation
-            .triangles
-            .chunks(3)
-            .map(|s| s.into())
-            .collect(),
-    )
+    for triplet in triangulation.chunks(3).into_iter() {
+        let p1 = Point{ x: points[triplet[0]].x, y: points[triplet[0]].y };
+        let p2 = Point{ x: points[triplet[1]].x, y: points[triplet[1]].y };
+        let p3 = Point{ x: points[triplet[2]].x, y: points[triplet[2]].y };
+        triangles.push(Triangle::new(p1, p2, p3))
+    }
+
+    triangles
 }
 
-pub fn sort_pixels_into_triangles(
+pub fn calculate_colors(
     original_image: &Picture,
-    mesh_info: (Vec<Point>, Vec<Vec<usize>>),
+    mesh: Vec<Triangle>
 ) -> (Array2<u8>, Array2<usize>) {
 
-    let (points, triangles) = mesh_info;
-    let mut colors = Array2::<u64>::zeros((triangles.len(), 3));
+    let mut colors = Array2::<u64>::zeros((mesh.len(), 3));
     let mut triangle_table = Array2::<usize>::zeros(original_image.dimension());
-    let mut triangle_pixel_counts = Array1::<usize>::zeros(triangles.len());
+    let mut triangle_pixel_counts = Array1::<usize>::zeros(mesh.len());
 
     let (width, height) = original_image.dimension();
 
     for w in 0..width {
         for h in 0..height {
-            let pixel = original_image.get_pixel(w, h);
-            let (r, g, b) = (pixel[[0]], pixel[[1]], pixel[[2]]);
+            for (t, triangle) in mesh.iter().enumerate() {
+                
+                if triangle.contains(Point{ x: w as f64, y: h as f64 }) {
 
-            for (t, triangle) in triangles.iter().enumerate() {
-                let triangle_positions = triangle
-                    .iter()
-                    .map(|p| &points[*p])
-                    .collect::<Vec<&Point>>();
+                    let pixel = original_image.get_pixel(w, h);
+                    let (r, g, b) = (pixel[[0]], pixel[[1]], pixel[[2]]);
 
-                if !point_is_in_triangle(
-                    &Point {
-                        x: w as f64,
-                        y: h as f64,
-                    },
-                    triangle_positions,
-                ) {
-                    continue;
+                    triangle_table[[w, h]] = t;
+                    triangle_pixel_counts[t] += 1;
+    
+                    colors[[t, 0]] += r as u64;
+                    colors[[t, 1]] += g as u64;
+                    colors[[t, 2]] += b as u64;
                 }
-
-                // point is in triangle... do calculations
-                triangle_table[[w, h]] = t;
-                triangle_pixel_counts[t] += 1;
-
-                colors[[t, 0]] += r as u64;
-                colors[[t, 1]] += g as u64;
-                colors[[t, 2]] += b as u64;
             }
         }
     }
 
-    for i in 0..triangles.len() {
+    for i in 0..mesh.len() {
         colors[[i, 0]] /= triangle_pixel_counts[[i]] as u64;
         colors[[i, 1]] /= triangle_pixel_counts[[i]] as u64;
         colors[[i, 2]] /= triangle_pixel_counts[[i]] as u64;
@@ -215,19 +197,4 @@ fn make_marginal_pdfs(source: Array2<u8>) -> (Array1<f64>, Array1<f64>) {
         .collect::<Array1<f64>>();
 
     (pdf_x, pdf_y)
-}
-
-fn point_is_in_triangle(point: &Point, triangle: Vec<&Point>) -> bool {
-    let d1 = tsign(point, triangle[0], triangle[1]);
-    let d2 = tsign(point, triangle[1], triangle[2]);
-    let d3 = tsign(point, triangle[2], triangle[0]);
-
-    let has_neg = (d1 < 0.) || (d2 < 0.) || (d3 < 0.);
-    let has_pos = (d1 > 0.) || (d2 > 0.) || (d3 > 0.);
-
-    !(has_neg && has_pos)
-}
-
-fn tsign(p1: &Point, p2: &Point, p3: &Point) -> f64 {
-    (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y)
 }

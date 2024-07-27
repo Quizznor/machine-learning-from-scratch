@@ -1,5 +1,6 @@
 *.out
 .vscode/
+*.code-workspace
 
 # decision tree
 decision-tree/decision-tree

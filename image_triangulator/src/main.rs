@@ -1,5 +1,6 @@
 use clap::Parser;
 
+mod triangle;
 mod picture;
 mod utl;
 
@@ -23,8 +24,8 @@ struct Cli {
 pub fn main() {
     let args = Cli::parse();
 
-    let mut original_image = runtime!(picture::Picture::from(&args.image), "reading image into vectors");
-    let grayscale = runtime!(original_image.to_grayscale(), "generating grayscale image");
+    let mut original_image = runtime!(picture::Picture::from(&args.image), "reading image");
+    let grayscale = runtime!(original_image.to_grayscale(), "transforming to grayscale");
 
     // determine triangulation parameters
     let dimensions = grayscale.dim();
@@ -38,13 +39,13 @@ pub fn main() {
     #[cfg(debug_assertions)]
     utl::save_gray_image(&edges, &(args.image.to_owned() + "_edges"));
 
-    let mesh = runtime!(utl::create_mesh(edges, n_triangles, args.power), "try building delauney mesh");
+    let mesh = runtime!(utl::create_mesh(edges, n_triangles, args.power), "building delauney mesh");
 
     #[cfg(debug_assertions)]
     utl::save_mesh_image(&mesh, dimensions, &(args.image.to_owned() + "_mesh"));
 
-    let color_information = runtime!(utl::sort_pixels_into_triangles(&original_image, mesh), "sorting pixels and colours");
+    let color_information = runtime!(utl::calculate_colors(&original_image, mesh), "sorting pixels, building triangles");
 
     runtime!(original_image.apply_colormap(color_information), "apply colormap to image");
-    runtime!(original_image.save(&(args.image.to_owned() + "_triangulation")), "saving triangulated picture");
+    runtime!(original_image.save(&(args.image.to_owned() + "_triangulation")), "save triangulation picture");
 }

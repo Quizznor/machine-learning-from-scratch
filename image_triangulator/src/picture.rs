@@ -1,7 +1,6 @@
 use image::{open, ImageFormat::Png, RgbImage};
 use ndarray::{s, ArrayView1};
 use ndarray::{Array1, Array2, Array3};
-use std::{io, io::Write};
 
 pub struct Picture {
     height: u32,
