@@ -4,7 +4,7 @@ use image::ImageFormat::Png;
 use ndarray::{array, Array1};
 use ndarray::{s, Array2};
 use plotters::prelude::*;
-use rand::Rng;
+use rand::{thread_rng, Rng};
 
 use crate::picture::Picture;
 use crate::triangle::Triangle;
@@ -92,41 +92,39 @@ pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
     edges
 }
 
-pub fn create_mesh(source: Array2<u8>, n_points: usize, power: f64) -> Vec<Triangle> {
+pub fn create_mesh(source: Array2<u8>, n_points: usize) -> Vec<Triangle> {
 
-    let mut rng = rand::thread_rng();
-    let (pdf_x, pdf_y) = make_marginal_pdfs(source);
-    let array_shape = (pdf_x.len(), pdf_y.len());
+    let mut rng = thread_rng();
+    let (cdf_x, cdf_y) = get_cdf(source);
 
-    // perform rejection sampling
+    // perform inverse transform sampling
     let mut points = Vec::<Point>::new();
-
-    // revisit this
     loop {
-        let (mut x, mut y): (usize, usize);
-        loop {
-            // make x coordinate
-            x = rng.gen_range(0..array_shape.0);
-            if rng.gen_range(0.0..1.0) <= pdf_x[[x]].powf(power) {
-                break;
-            }
-        }
+
+        // generate random x
+        let x_chance: f64 = rng.gen();
+        let mut x = 0;
 
         loop {
-            // make y coordinate
-            y = rng.gen_range(0..array_shape.1);
-            if rng.gen_range(0.0..1.0) <= pdf_y[[y]].powf(power) {
-                break;
-            }
+            if cdf_x[x] > x_chance {break;}
+            x += 1;
         }
 
+        // generate random y
+        let y_chance: f64 = rng.gen();
+        let mut y = 0;
+
+        loop {
+            if cdf_y[y] > y_chance {break;}
+            y += 1;
+        }
+        
         points.push(Point {
             x: x as f64,
             y: y as f64,
         });
-        if points.len() == n_points {
-            break;
-        }
+
+        if points.len() == n_points {break;}
     }
 
     let triangulation = triangulate(&points).triangles;
@@ -149,7 +147,7 @@ pub fn calculate_colors(
 
     let mut colors = Array2::<u64>::zeros((mesh.len(), 3));
     let mut triangle_table = Array2::<usize>::zeros(original_image.dimension());
-    let mut triangle_pixel_counts = Array1::<usize>::zeros(mesh.len());
+    let mut triangle_pixel_counts = Array1::<usize>::ones(mesh.len());
 
     let (width, height) = original_image.dimension();
 
@@ -185,16 +183,27 @@ pub fn calculate_colors(
     )
 }
 
-fn make_marginal_pdfs(source: Array2<u8>) -> (Array1<f64>, Array1<f64>) {
+fn get_cdf(source: Array2<u8>) -> (Array1<f64>, Array1<f64>) {
     let weight: f64 = source.mapv(|x| f64::from(x)).sum();
     let array_shape = source.dim();
 
-    let pdf_x = (0..array_shape.0)
-        .map(|x| source.column(x).mapv(|x| f64::from(x)).sum() / weight)
-        .collect::<Array1<f64>>();
-    let pdf_y = (0..array_shape.1)
-        .map(|x| source.row(x).mapv(|x| f64::from(x)).sum() / weight)
-        .collect::<Array1<f64>>();
+    let mut cdf_x = Array1::<f64>::zeros(array_shape.0);
+    let mut cdf_y = Array1::<f64>::zeros(array_shape.1);
 
-    (pdf_x, pdf_y)
+    cdf_x[0] = source.column(0).mapv(|x| f64::from(x)).sum();
+    cdf_y[0] = source.row(0).mapv(|x| f64::from(x)).sum();
+
+    // calculate x cdf
+    for i in 1..array_shape.0 {
+        cdf_x[i] = source.column(i).mapv(|x| f64::from(x)).sum();
+        cdf_x[i] += cdf_x[i-1];
+    }
+
+    // calculate x cdf
+    for i in 1..array_shape.1 {
+        cdf_y[i] = source.row(i).mapv(|x| f64::from(x)).sum();
+        cdf_y[i] += cdf_y[i-1];
+    }
+
+    (cdf_x / weight, cdf_y / weight)
 }

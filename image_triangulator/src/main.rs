@@ -13,7 +13,7 @@ struct Cli {
     image: String,
 
     /// fraction of triangles/image pixel count
-    #[arg(short, long, default_value_t = 0.001)]
+    #[arg(short, long, default_value_t = 0.003)]
     n_tri: f64,
 
     /// mesh generation permissivity
@@ -39,7 +39,7 @@ pub fn main() {
     #[cfg(debug_assertions)]
     utl::save_gray_image(&edges, &(args.image.to_owned() + "_edges"));
 
-    let mesh = runtime!(utl::create_mesh(edges, n_triangles, args.power), "building delauney mesh");
+    let mesh = runtime!(utl::create_mesh(edges, n_triangles), "building delauney mesh");
 
     #[cfg(debug_assertions)]
     utl::save_mesh_image(&mesh, dimensions, &(args.image.to_owned() + "_mesh"));
