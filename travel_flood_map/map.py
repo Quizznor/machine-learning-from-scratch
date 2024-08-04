@@ -33,7 +33,7 @@ class Map():
         self.center_node = osmnx.nearest_nodes(self.graph, *middle_point)
 
 
-    def calculate_travel_times(self):
+    def calculate_reach_times(self):
 
         destinations = [node for node in self.graph.nodes() if node != self.center_node]
         origins = [self.center_node for _ in destinations]
@@ -43,9 +43,9 @@ class Map():
         travel_times = {}
         for r in routes:
             times = [self.graph.get_edge_data(r[i], r[i+1])[0]['travel_time'] for i in range(len(r)-1)]
-            travel_times[r[-1]] = np.sum(times)
+            travel_times[r[-1]] = np.sum(times) / 60
 
-        return travel_times
+        networkx.set_node_attributes(self.graph, travel_times, "reach_time")
 
 
     def draw(self):
