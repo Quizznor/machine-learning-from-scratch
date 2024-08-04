@@ -1,7 +1,5 @@
 use ndarray_rand::{rand_distr::Standard, RandomExt};
 use ndarray_rand::rand_distr::num_traits::Pow;
-use ndarray_rand::rand::SeedableRng;
-use rand_isaac::isaac64::Isaac64Rng;
 use rand::prelude::SliceRandom;
 use ndarray::ArrayView1;
 use ndarray::Array2;
