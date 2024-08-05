@@ -23,10 +23,4 @@ parser.add_argument('--distance',
 if __name__ == "__main__":
 
     flood_map = Map(parser.parse_args())
-
-    # print(flood_map.graph.node[])
-
-    routes = flood_map.solve()
-
-    # for route in routes:
-    #     print(route)
+    flood_map.draw()

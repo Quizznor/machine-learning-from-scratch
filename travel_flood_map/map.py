@@ -1,7 +1,14 @@
 import osmnx
 import networkx
 import numpy as np
-import multiprocessing
+import geopandas as gpd
+import matplotlib.pyplot as plt
+from matplotlib.path import Path
+from matplotlib.colors import Normalize
+from matplotlib.patches import PathPatch
+from matplotlib.colorbar import ColorbarBase
+from matplotlib.collections import PatchCollection
+from shapely import Point, LineString, Polygon
 
 class Map():
     def __init__(self, arguments):
@@ -11,6 +18,8 @@ class Map():
                                         dist=arguments.distance,
                                         dist_type="network",
         )
+
+        self.args = arguments
 
         # We have to manually compute the graph center point, 
         # since geocode gives wrong results for some reason...
@@ -33,29 +42,62 @@ class Map():
         self.center_node = osmnx.nearest_nodes(self.graph, *middle_point)
 
 
-    def calculate_reach_times(self):
+    def get_isochrone(self, travel_time):
 
-        destinations = [node for node in self.graph.nodes() if node != self.center_node]
-        origins = [self.center_node for _ in destinations]
-
-        routes = osmnx.routing.shortest_path(self.graph, origins, destinations, weight="travel_time")
-
-        travel_times = {}
-        for r in routes:
-            times = [self.graph.get_edge_data(r[i], r[i+1])[0]['travel_time'] for i in range(len(r)-1)]
-            travel_times[r[-1]] = np.sum(times) / 60
-
-        networkx.set_node_attributes(self.graph, travel_times, "reach_time")
-
-
-    def draw(self):
+        subgraph = networkx.ego_graph(self.graph, self.center_node,
+                                      radius = travel_time,
+                                      distance = 'travel_time')
         
-        from matplotlib import pyplot as plt
-        central_node = self.graph.nodes[self.center_node]
-        plt.scatter(central_node['x'], central_node['y'], zorder=10)
+        node_points = [Point((data['x'], data['y'])) for node, data in subgraph.nodes(data=True)]
+        nodes_gdf = gpd.GeoDataFrame({'id': subgraph.nodes()}, geometry=node_points)
+        nodes_gdf = nodes_gdf.set_index('id')
 
-        osmnx.plot_graph(self.graph, ax=plt.gca(), node_size=0)
+        edge_lines = []
+        for n_fr, n_to in subgraph.edges():
+            f = nodes_gdf.loc[n_fr].geometry
+            t = nodes_gdf.loc[n_to].geometry
+            edge_lines.append(LineString([f,t]))
+
+        edges_gdf = gpd.GeoDataFrame(geometry=edge_lines)
+        polygon = edges_gdf.buffer(6e-5).unary_union
+        
+        return Polygon(polygon.exterior)
+    
+    
+    def draw(self, **kwargs):
+
+        cmap = kwargs.get("cmap", plt.cm.plasma)
+        n_points = kwargs.get("n_points", 6)
+
+        fig, (ax, cax) = plt.subplots(2, 1, height_ratios = [1, 0.03])
+        travel_times = networkx.single_source_dijkstra_path_length(self.graph, 
+                                                                   self.center_node, 
+                                                                   weight='travel_time')
+        
+        travel_times = np.linspace(0, list(travel_times.values())[-1],
+                                   n_points,
+                                   dtype=int)[1:]
+
+        norm = Normalize(travel_times[0], travel_times[-1])
+        colors = [cmap(norm(x)) for x in travel_times]
+
+        for t, c in zip(travel_times[::-1], colors[::-1]):
+            polygon = self.get_isochrone(t)
+            self.plot_isochrone(ax, polygon, color=c, alpha=0.2, zorder=10)
+
+        ColorbarBase(cax, cmap=cmap, norm=norm, orientation='horizontal', label="Traveling time")
+        osmnx.plot_graph(self.graph, ax=ax, node_size=0)
+
+        fig.savefig(f"{'_'.join(self.args.position)}_{self.args.distance}_{self.args.type}_{len(travel_times)}levels.png")
 
 
+    @staticmethod
+    def plot_isochrone(ax, polygon, **kwargs):
 
+        path = Path.make_compound_path(
+            Path(np.asarray(polygon.exterior.coords)[:, :2]),
+            *[Path(np.asarray(ring.coords)[:, :2]) for ring in polygon.interiors])
 
+        patch = PathPatch(path, **kwargs)
+        collection = PatchCollection([patch], **kwargs)
+        ax.add_collection(collection, autolim=True)
