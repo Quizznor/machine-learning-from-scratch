@@ -118,18 +118,22 @@ class Map():
         fig.suptitle(title, fontsize=20)
         fig, ax = osmnx.plot_graph(self.graph, ax=ax, node_size=1, node_color='grey', show=False)
 
-        to_km = lambda ext: 111.320 * np.abs(np.cos(np.pi/180 * ext[0]) * ext[1]) 
+        to_km = lambda ext: 111.320 * np.abs(np.cos(np.pi/180 * ext[1]) * ext[0]) 
         for artist in ax.get_children():
             if isinstance(artist, PathCollection):
                 artist.set_visible(False)
 
-                x0, x1 = ax.get_xlim()
-                y0, y1 = ax.get_ylim()
-                dist_lim = to_km((x1 - x0, y1 - y0))
+                margins = ax.margins()
+                x0, x1 = np.array(ax.get_xlim()) - 2 * margins[0]
+                y0, y1 = np.array(ax.get_ylim()) - 2 * margins[1]
+                dist_lim = to_km((x1 - x0, 0.5*(y1 + y0)))
                 distances = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
-                scaling = np.argmin(np.abs(np.array(distances) - dist_lim))
-                dist_label = f"${distances[scaling]}\,\mathrm{{km}}$"
-                scaling = 1/(distances[scaling]/(dist_lim))
+                closest_index = np.argmin(np.abs(np.array(distances) - dist_lim))
+
+                dist_label = f"${distances[closest_index]}\,\mathrm{{km}}$"
+                scaling = distances[closest_index]/(dist_lim)
+
+                print(scaling)
 
                 ax.plot(
                     [0.98 - scaling, 0.98], [-0.03, -0.03],
@@ -194,11 +198,11 @@ class Map():
         if (hours := remaining // (60 * 60)):
             remaining %= (60 * 60)
             return_str += f"{hours}h "
-        if (minutes := remaining // 60):
+        if (minutes := remaining // 60) and not days:
             remaining %= 60
             return_str += f"{minutes}m "
         
-        return_str += f"{remaining}s"
+        return_str += f"{remaining}s" if not (days or hours) else ""
         return return_str
     
     @staticmethod
