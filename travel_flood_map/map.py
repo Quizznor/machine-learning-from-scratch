@@ -133,8 +133,6 @@ class Map():
                 dist_label = f"${distances[closest_index]}\,\mathrm{{km}}$"
                 scaling = distances[closest_index]/(dist_lim)
 
-                print(scaling)
-
                 ax.plot(
                     [0.98 - scaling, 0.98], [-0.03, -0.03],
                     transform = ax.transAxes,
