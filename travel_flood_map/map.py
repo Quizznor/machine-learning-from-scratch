@@ -8,7 +8,7 @@ from matplotlib.patches import PathPatch
 from matplotlib.ticker import FuncFormatter
 from matplotlib.colors import BoundaryNorm, Normalize
 from matplotlib.colorbar import ColorbarBase
-from matplotlib.collections import PatchCollection
+from matplotlib.collections import PatchCollection, PathCollection
 from shapely import Point, LineString, Polygon
 
 class Map():
@@ -44,7 +44,7 @@ class Map():
                 if lon > max_lon: max_lon = lon
                 elif lon < min_lon: min_lon = lon
 
-            middle_point = (min_lat + (max_lat - min_lat)/2, min_lon + (max_lon - min_lon)/2)
+            middle_point = (min_lat + (max_lat-min_lat)/2, min_lon + (max_lon-min_lon)/2)
             self.start_node = osmnx.nearest_nodes(self.graph, *middle_point)
 
         self.graph = osmnx.routing.add_edge_speeds(self.graph)
@@ -116,9 +116,60 @@ class Map():
         title += ' '.join(self.args.location)
         title += f" - {self.args.dist}m" if self.args.dist is not None else "" 
         fig.suptitle(title, fontsize=20)
-        osmnx.plot_graph(self.graph, ax=ax, node_size=0)
+        fig, ax = osmnx.plot_graph(self.graph, ax=ax, node_size=1, node_color='grey', show=False)
 
-        fig.savefig(f"{'_'.join(self.args.location)}_{self.args.dist if self.args.dist is not None else ''}_{len(travel_times)}levels.png")
+        to_km = lambda ext: 111.320 * np.abs(np.cos(np.pi/180 * ext[0]) * ext[1]) 
+        for artist in ax.get_children():
+            if isinstance(artist, PathCollection):
+                artist.set_visible(False)
+
+                x0, x1 = ax.get_xlim()
+                y0, y1 = ax.get_ylim()
+                dist_lim = to_km((x1 - x0, y1 - y0))
+                distances = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
+                scaling = np.argmin(np.abs(np.array(distances) - dist_lim))
+                dist_label = f"${distances[scaling]}\,\mathrm{{km}}$"
+                scaling = 1/(distances[scaling]/(dist_lim))
+
+                ax.plot(
+                    [0.98 - scaling, 0.98], [-0.03, -0.03],
+                    transform = ax.transAxes,
+                    clip_on=False,
+                    c = "gray",
+                    lw = 1.4,
+                )
+                ax.text(
+                    0.98 - scaling/2, -0.05,
+                    dist_label,
+                    horizontalalignment='center',
+                    verticalalignment='top',
+                    transform = ax.transAxes
+                )
+                
+                for x in [0.98 - scaling, 0.98]:        
+                    ax.plot(
+                        [x, x], [-0.03, -0.01],
+                        transform = ax.transAxes,
+                        clip_on=False,
+                        c = "gray",
+                        lw = 1.4
+                    )
+                for x in np.linspace(0.98 - scaling, 0.98, 5, endpoint=True)[1:-1]:
+                    ax.plot(
+                        [x, x], [-0.03, -0.02],
+                        transform = ax.transAxes,
+                        clip_on=False,
+                        c = "gray",
+                        lw = 0.7
+                    )
+
+                break
+
+        file = f"{'_'.join(self.args.location)}"
+        file += f"_{'_'.join(self.args.start)}" if self.args.start is not None else ""
+        file += f"_{self.args.dist}" if self.args.dist is not None else ""
+        file += f"_{n_points-1}levels.png"
+        fig.savefig(file)
 
 
     @staticmethod
