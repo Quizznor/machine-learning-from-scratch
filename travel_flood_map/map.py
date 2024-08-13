@@ -8,7 +8,7 @@ from matplotlib.patches import PathPatch
 from matplotlib.ticker import FuncFormatter
 from matplotlib.colors import BoundaryNorm, Normalize
 from matplotlib.colorbar import ColorbarBase
-from matplotlib.collections import PatchCollection
+from matplotlib.collections import PatchCollection, PathCollection
 from shapely import Point, LineString, Polygon
 
 class Map():
@@ -44,7 +44,7 @@ class Map():
                 if lon > max_lon: max_lon = lon
                 elif lon < min_lon: min_lon = lon
 
-            middle_point = (min_lat + (max_lat - min_lat)/2, min_lon + (max_lon - min_lon)/2)
+            middle_point = (min_lat + (max_lat-min_lat)/2, min_lon + (max_lon-min_lon)/2)
             self.start_node = osmnx.nearest_nodes(self.graph, *middle_point)
 
         self.graph = osmnx.routing.add_edge_speeds(self.graph)
@@ -112,18 +112,60 @@ class Map():
                      norm = BoundaryNorm([0] + list(travel_times), cmap.N),
                      format=FuncFormatter(self.format_label))
 
-        title = f"{' '.join(self.args.start)}, " if self.args.start is not None else ""
-        title += ' '.join(self.args.location)
-        title += f" - {self.args.dist}m" if self.args.dist is not None else "" 
-        fig.suptitle(title, fontsize=20)
-        osmnx.plot_graph(self.graph, ax=ax, node_size=0)
+        to_km = lambda ext: 111.320 * np.abs(np.cos(np.pi/180 * ext[1]) * ext[0]) 
+        for artist in ax.get_children():
+            if isinstance(artist, PathCollection):
+                artist.set_visible(False)
 
-        file_path = f"{self.args.location}"
-        file_path += f"_{self.args.start}" if self.args.start is not None else ""
-        file_path += f"_{self.args.distance}m" if self.args.distance is not None else ""
-        file_path += f"_{n_levels}levels.png"
+                margins = ax.margins()
+                x0, x1 = np.array(ax.get_xlim()) - 2 * margins[0]
+                y0, y1 = np.array(ax.get_ylim()) - 2 * margins[1]
+                dist_lim = to_km((x1 - x0, 0.5*(y1 + y0)))
+                distances = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
+                closest_index = np.argmin(np.abs(np.array(distances) - dist_lim))
 
-        fig.savefig(file_path)
+                dist_label = f"${distances[closest_index]}\,\mathrm{{km}}$"
+                scaling = distances[closest_index]/(dist_lim)
+
+                ax.plot(
+                    [0.98 - scaling, 0.98], [-0.03, -0.03],
+                    transform = ax.transAxes,
+                    clip_on=False,
+                    c = "gray",
+                    lw = 1.4,
+                )
+                ax.text(
+                    0.98 - scaling/2, -0.05,
+                    dist_label,
+                    horizontalalignment='center',
+                    verticalalignment='top',
+                    transform = ax.transAxes
+                )
+                
+                for x in [0.98 - scaling, 0.98]:        
+                    ax.plot(
+                        [x, x], [-0.03, -0.01],
+                        transform = ax.transAxes,
+                        clip_on=False,
+                        c = "gray",
+                        lw = 1.4
+                    )
+                for x in np.linspace(0.98 - scaling, 0.98, 5, endpoint=True)[1:-1]:
+                    ax.plot(
+                        [x, x], [-0.03, -0.02],
+                        transform = ax.transAxes,
+                        clip_on=False,
+                        c = "gray",
+                        lw = 0.7
+                    )
+
+                break
+
+        file = f"{'_'.join(self.args.location)}"
+        file += f"_{'_'.join(self.args.start)}" if self.args.start is not None else ""
+        file += f"_{self.args.dist}" if self.args.dist is not None else ""
+        file += f"_{n_levels-1}levels.png"
+        fig.savefig(file)
 
 
     @staticmethod
@@ -148,11 +190,11 @@ class Map():
         if (hours := remaining // (60 * 60)):
             remaining %= (60 * 60)
             return_str += f"{hours}h "
-        if (minutes := remaining // 60):
+        if (minutes := remaining // 60) and not days:
             remaining %= 60
             return_str += f"{minutes}m "
         
-        return_str += f"{remaining}s"
+        return_str += f"{remaining}s" if not (days or hours) else ""
         return return_str
     
     @staticmethod
