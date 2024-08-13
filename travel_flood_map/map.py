@@ -79,11 +79,11 @@ class Map():
     def draw(self, **kwargs):
 
         cmap = kwargs.get("cmap", plt.cm.plasma)
-        n_points = kwargs.get("n_points", 6)
+        n_levels = kwargs.get("n_levels", 6)
         max_time = kwargs.get("max_time", False)
 
         plt.rcParams["font.family"] = 'Palatino'
-        plt.rcParams["text.usetex"] = True
+        # plt.rcParams["text.usetex"] = True
 
         fig, (ax, cax) = plt.subplots(1, 2, width_ratios = [1, 0.03])
         
@@ -94,11 +94,11 @@ class Map():
 
             max_travel_time_seconds = list(travel_times.values())[-1] 
             travel_times = np.linspace(0, max_travel_time_seconds,
-                                    n_points,
+                                    n_levels,
                                     dtype=int)[1:]
         else:
             travel_times = np.linspace(0, max_time,
-                                       n_points,
+                                       n_levels,
                                        dtype=int)[1:]
 
         norm = Normalize(np.min(travel_times), np.max(travel_times))
@@ -118,7 +118,12 @@ class Map():
         fig.suptitle(title, fontsize=20)
         osmnx.plot_graph(self.graph, ax=ax, node_size=0)
 
-        fig.savefig(f"{'_'.join(self.args.location)}_{self.args.dist if self.args.dist is not None else ''}_{len(travel_times)}levels.png")
+        file_path = f"{self.args.location}"
+        file_path += f"_{self.args.start}" if self.args.start is not None else ""
+        file_path += f"_{self.args.distance}m" if self.args.distance is not None else ""
+        file_path += f"_{n_levels}levels.png"
+
+        fig.savefig(file_path)
 
 
     @staticmethod
