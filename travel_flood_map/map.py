@@ -79,11 +79,11 @@ class Map():
     def draw(self, **kwargs):
 
         cmap = kwargs.get("cmap", plt.cm.plasma)
-        n_points = kwargs.get("n_points", 6)
+        n_levels = kwargs.get("n_levels", 6)
         max_time = kwargs.get("max_time", False)
 
         plt.rcParams["font.family"] = 'Palatino'
-        plt.rcParams["text.usetex"] = True
+        # plt.rcParams["text.usetex"] = True
 
         fig, (ax, cax) = plt.subplots(1, 2, width_ratios = [1, 0.03])
         
@@ -94,11 +94,11 @@ class Map():
 
             max_travel_time_seconds = list(travel_times.values())[-1] 
             travel_times = np.linspace(0, max_travel_time_seconds,
-                                    n_points,
+                                    n_levels,
                                     dtype=int)[1:]
         else:
             travel_times = np.linspace(0, max_time,
-                                       n_points,
+                                       n_levels,
                                        dtype=int)[1:]
 
         norm = Normalize(np.min(travel_times), np.max(travel_times))
@@ -111,12 +111,6 @@ class Map():
         ColorbarBase(cax, cmap=cmap, orientation='vertical', label="Traveling time",
                      norm = BoundaryNorm([0] + list(travel_times), cmap.N),
                      format=FuncFormatter(self.format_label))
-
-        title = f"{' '.join(self.args.start)}, " if self.args.start is not None else ""
-        title += ' '.join(self.args.location)
-        title += f" - {self.args.dist}m" if self.args.dist is not None else "" 
-        fig.suptitle(title, fontsize=20)
-        fig, ax = osmnx.plot_graph(self.graph, ax=ax, node_size=1, node_color='grey', show=False)
 
         to_km = lambda ext: 111.320 * np.abs(np.cos(np.pi/180 * ext[1]) * ext[0]) 
         for artist in ax.get_children():
@@ -170,7 +164,7 @@ class Map():
         file = f"{'_'.join(self.args.location)}"
         file += f"_{'_'.join(self.args.start)}" if self.args.start is not None else ""
         file += f"_{self.args.dist}" if self.args.dist is not None else ""
-        file += f"_{n_points-1}levels.png"
+        file += f"_{n_levels-1}levels.png"
         fig.savefig(file)
 
 
