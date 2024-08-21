@@ -92,13 +92,47 @@ pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
     edges
 }
 
-pub fn create_mesh(source: Array2<u8>, n_points: usize) -> Vec<Triangle> {
+pub fn create_mesh(source: Array2<u8>, n_points: usize, power: f64) -> Vec<Triangle> {
 
     let mut rng = thread_rng();
-    let (cdf_x, cdf_y) = get_cdf(source);
-
-    // perform inverse transform sampling
+    let (cdf_x, cdf_y) = get_cdf(source, power);
     let mut points = Vec::<Point>::new();
+
+    // // chad inverse transform sampling
+    // loop {
+    //     let (x_chance, y_chance): (f64, f64) = rng.gen();
+
+    //     let (mut min_x, mut min_y) = (f64::MAX, f64::MAX);
+    //     let (mut x, mut y): (usize, usize) = (0, 0);
+
+    //     // determine x
+    //     for (ix, x_candidate) in cdf_x.iter().enumerate() {
+    //         let dist = (x_candidate - x_chance).abs();
+    //         if dist < min_x {
+    //             min_x = dist;
+    //             x = ix;
+    //         }
+    //     }
+
+    //     // determine y
+    //     for (iy, y_candidate) in cdf_y.iter().enumerate() {
+    //         let dist = (y_candidate - y_chance).abs();
+    //         if dist < min_y {
+    //             min_y = dist;
+    //             y = iy;
+    //         }
+    //     }
+
+    //     points.push(Point {
+    //         x: x as f64,
+    //         y: y as f64
+    //     });
+
+    //     if points.len() == n_points {break;}
+    // }
+
+    
+    // virgin rejection sampling
     loop {
 
         // generate random x
@@ -183,25 +217,25 @@ pub fn calculate_colors(
     )
 }
 
-fn get_cdf(source: Array2<u8>) -> (Array1<f64>, Array1<f64>) {
-    let weight: f64 = source.mapv(|x| f64::from(x)).sum();
+fn get_cdf(source: Array2<u8>, power: f64) -> (Array1<f64>, Array1<f64>) {
+    let weight: f64 = source.mapv(|x| f64::from(x).powf(power)).sum();
     let array_shape = source.dim();
 
     let mut cdf_x = Array1::<f64>::zeros(array_shape.0);
     let mut cdf_y = Array1::<f64>::zeros(array_shape.1);
 
-    cdf_x[0] = source.column(0).mapv(|x| f64::from(x)).sum();
-    cdf_y[0] = source.row(0).mapv(|x| f64::from(x)).sum();
+    cdf_x[0] = source.column(0).mapv(|x| f64::from(x).powf(power)).sum();
+    cdf_y[0] = source.row(0).mapv(|x| f64::from(x).powf(power)).sum();
 
     // calculate x cdf
     for i in 1..array_shape.0 {
-        cdf_x[i] = source.column(i).mapv(|x| f64::from(x)).sum();
+        cdf_x[i] = source.column(i).mapv(|x| f64::from(x).powf(power)).sum();
         cdf_x[i] += cdf_x[i-1];
     }
 
     // calculate x cdf
     for i in 1..array_shape.1 {
-        cdf_y[i] = source.row(i).mapv(|x| f64::from(x)).sum();
+        cdf_y[i] = source.row(i).mapv(|x| f64::from(x).powf(power)).sum();
         cdf_y[i] += cdf_y[i-1];
     }
 
