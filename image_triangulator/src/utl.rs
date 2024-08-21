@@ -92,7 +92,7 @@ pub fn sobel_operator(gray_image: Array2<u8>) -> Array2<u8> {
     edges
 }
 
-pub fn create_mesh(source: Array2<u8>, n_points: usize) -> Vec<Triangle> {
+pub fn create_mesh(source: Array2<u8>, n_points: usize, power: f64) -> Vec<Triangle> {
 
     let mut rng = thread_rng();
     let (cdf_x, cdf_y) = get_cdf(source);
