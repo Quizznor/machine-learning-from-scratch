@@ -24,6 +24,11 @@ struct Cli {
 pub fn main() {
     let args = Cli::parse();
 
+    // TODO!!!!!
+    // better sobel edge detection
+    // better mesh creation scheiss
+    // fix runtime error
+
     let mut original_image = runtime!(picture::Picture::from(&args.image), "reading image");
     let grayscale = runtime!(original_image.to_grayscale(), "transforming to grayscale");
 

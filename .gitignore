@@ -1,6 +1,6 @@
 *.out
-.vscode/
-*.code-workspace
+*-venv/
+*.env*
 
 # decision tree
 decision-tree/decision-tree
