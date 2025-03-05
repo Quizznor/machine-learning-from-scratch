@@ -13,3 +13,4 @@ digit-classifier/parameters/*
 
 # image triangulator
 *.jpg
+*.jpeg
