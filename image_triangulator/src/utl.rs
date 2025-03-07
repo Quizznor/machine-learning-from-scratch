@@ -37,9 +37,55 @@ pub fn type_of<T>(_: T) -> &'static str {
 use rand::Rng;
 use image::{open, RgbImage};
 use ndarray::{s, Array, Array1, Array2, Array3};
-use delaunator::{triangulate, Point, Triangulation};
+use delaunator::{triangulate, Point};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use std::{f64::consts::PI, path::PathBuf};
+
+use crate::mesh::Mesh;
+
+trait Geometry {
+    fn distance(&self, other: &Self) -> f64;
+    fn line(&self, other: &Self) -> Vec<Self> where Self: Sized;
+    fn circle(&self, radius: f64) -> Vec<Self> where Self: Sized;
+}
+
+impl Geometry for Point {
+    fn distance(&self, other: &Point) -> f64 {
+        f64::sqrt( (self.x - other.x).powi(2) + (self.y - other.y).powi(2) )
+    }
+
+    fn line(&self, other: &Point) -> Vec<Point> {
+        let mut line = vec![self.clone()];
+        let (x_slope, y_slope) = (self.x - other.x, self.y - other.y);
+        let d = self.distance(other);
+
+        for increment in 0..d as i32 {
+            let new_point = Point{
+                x: (self.x - increment as f64 * (x_slope/d)).round(),
+                y: (self.y - increment as f64 * (y_slope/d)).round()
+            };
+
+            if new_point != line[line.len()-1] {line.push(new_point);}
+        }
+
+        line
+    }
+
+    fn circle(&self, radius: f64) -> Vec<Point> {
+        let mut circle = vec![Point{ x: self.x + radius, y: self.y}];
+
+        for phi in Array::linspace(0., 2.* PI, 100) {
+            let new_point = Point{ 
+                x: (self.x + radius * f64::cos(phi)).round(),
+                y: (self.y + radius * f64::sin(phi)).round()
+            };
+    
+            if new_point != circle[circle.len()-1] {circle.push(new_point);}
+        }
+    
+        circle
+    }   
+}
 
 /// read the image at <path> and return the data as [`Array3<u8>`]
 pub fn read_image(path: &PathBuf) -> Array3<u8> {
@@ -103,7 +149,7 @@ pub fn contrast(array: &Array3<u8>) -> Array3<u8> {
 }
 
 /// triangulate image from randomly drawn n coordinates in a heatmap
-pub fn get_triangulation(n: &u32, edge_heatmap: Array3<u8>) -> (Triangulation, Vec<Point>) {
+pub fn get_mesh(n: &u32, edge_heatmap: Array3<u8>) -> Mesh {
     let (height, width, _) = edge_heatmap.dim();
     let mut cdf_x = Array1::<f64>::zeros(width);
     let mut cdf_y = Array1::<f64>::zeros(height);
@@ -183,18 +229,19 @@ pub fn get_triangulation(n: &u32, edge_heatmap: Array3<u8>) -> (Triangulation, V
         }
     }
 
-    (triangulate(&points), points)
+    Mesh::new(triangulate(&points), points)
 }
 
-
 /// get 2d image representation of a delauney triangulation
-pub fn build_mesh_image(tri: &Triangulation, points: &Vec<Point>) -> Array3<u8> {
+pub fn build_mesh_image(mesh: &Mesh) -> Array3<u8> {
+
+    let (tri, points) = (mesh.get_triangulation(), mesh.get_points());
     let (width, height) = (points[0].x as usize + 1, points[0].y as usize + 1);
     let mut mesh_image = Array3::<u8>::from_elem((height, width, 3), 255);
 
     // // draw nodes as hollow circles
     // for point in points {
-    //     for circum_point in _get_circumcircle(point, 1.) {
+    //     for circum_point in point.circle(1.) {
     //         _brush(&mut mesh_image, circum_point, 2);
     //     }
     // }
@@ -208,52 +255,31 @@ pub fn build_mesh_image(tri: &Triangulation, points: &Vec<Point>) -> Array3<u8> 
         let p2 = &points[triplet[1]];
         let p3 = &points[triplet[2]];
 
-        for line_point in _get_line(p1, p2) {_brush(&mut mesh_image, line_point, 1);}
-        for line_point in _get_line(p2, p3) {_brush(&mut mesh_image, line_point, 1);}
-        for line_point in _get_line(p3, p1) {_brush(&mut mesh_image, line_point, 1);}
+        for line_point in p1.line(p2) {_brush(&mut mesh_image, line_point, 1);}
+        for line_point in p2.line(p3) {_brush(&mut mesh_image, line_point, 1);}
+        for line_point in p3.line(p1) {_brush(&mut mesh_image, line_point, 1);}
     }
 
     mesh_image
 }
 
+/// build pixel groupings for a mesh of triangles
+pub fn lookup_table(mesh: Mesh) -> Vec<Vec<usize>> {
+    let lookup_table = Vec::<Vec<usize>>::new();
+
+    for point in mesh.get_points() {
+        let index = mesh.contains_where(point);
+        println!("{:?}", index);
+    }
+
+    lookup_table
+}
+
 /// 
-
-
-/// helper function for build_mesh_image, not public
-/// return circle of points with given radius and center 
-fn _get_circumcircle(center: &Point, radius: f64) -> Vec<Point> {
-    let mut circle = vec![Point{ x: center.x + radius, y: center.y}];
-
-    for phi in Array::linspace(0., 2.* PI, 100) {
-        let new_point = Point{ 
-            x: (center.x + radius * f64::cos(phi)).round(),
-            y: (center.y + radius * f64::sin(phi)).round()
-        };
-
-        if new_point != circle[circle.len()-1] {circle.push(new_point);}
-    }
-
-    circle
+pub fn color(hashtable: Vec<Vec<usize>>, mut image: Array3<u8>) -> Array3<u8> {
+    panic!("AAAAH")
 }
 
-/// helper function for build_mesh_image, not public
-/// return path of points in a straight line from A to B
-fn _get_line(a: &Point, b: &Point) -> Vec<Point> {
-    let mut line = vec![a.clone()];
-    let (x_slope, y_slope) = (a.x - b.x, a.y - b.y);
-    let d = f64::sqrt(x_slope.powi(2) + y_slope.powi(2));
-
-    for increment in 0..d as i32 {
-        let new_point = Point{
-            x: (a.x - increment as f64 * (x_slope/d)).round(),
-            y: (a.y - increment as f64 * (y_slope/d)).round()
-        };
-
-        if new_point != line[line.len()-1] {line.push(new_point);}
-    }
-
-    line
-}
 
 /// helper function for build_mesh_image, not public
 /// (maybe) fill image at a location given by point w/ 0
@@ -273,9 +299,6 @@ fn _brush(image: &mut Array3<u8>, point: Point, brush_size: i32) -> () {
     image.slice_mut(s![y - brush_size..y + brush_size,
                             x - brush_size..x + brush_size, ..]).fill(0)
 }
-
-
-
 
 
 // pub fn calculate_colors(
