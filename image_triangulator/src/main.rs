@@ -2,34 +2,14 @@ use clap::{arg, Command};
 use std::fs::canonicalize;
 use std::path::PathBuf;
 
-// mod picture;
-
 mod utl;
 mod mesh;
-
-/// Gives the triangulation of an image
-// #[derive(Parser, Debug)]
-// #[command(version, about, long_about = None)]
-// struct Cli {
-//     /// target path of the image
-//     #[arg(short, long)]
-//     image: path::Path,
-
-//     /// fraction of triangles/image pixel count
-//     #[arg(short, long, default_value_t = 0.003)]
-//     n_tri: f64,
-
-//     /// mesh generation permissivity
-//     #[arg(short, long, default_value_t = 3.)]
-//     power: f64,
-// }
 
 pub fn main() {
     let matches = Command::new("ImageTriangulator")
         .version("1.0")
         .about("Return a low-poly representation of a given image")
         .arg(arg!([image] "path to image").required(true))
-        // placeholders TODO
         .arg(
             arg!(-n --points <VALUE>)
                 .help("Number of points to use for triangulation")
@@ -63,11 +43,9 @@ pub fn main() {
         utl::save_image(&mesh_image, &path, "mesh")
     }
 
-    let lookup_table = runtime!(utl::lookup_table(mesh), "calculating groups");
-    
+    let color_lookup_table = runtime!(utl::color_lookup_table(mesh, &original_image), "calculating groups");
+    let triangulated_image = runtime!(utl::color(color_lookup_table, original_image), "applying colormap");
+    utl::save_image(&triangulated_image, &path, "triangulated");
 
-    let triangulated_image = runtime!(utl::color(lookup_table, original_image), "applying colormap");
 
-    // todo: apply color
-    // todo: save image
 }

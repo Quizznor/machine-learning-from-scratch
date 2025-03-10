@@ -29,63 +29,15 @@ macro_rules! runtime {
     }};
 }
 
-use std::any::type_name;
-pub fn type_of<T>(_: T) -> &'static str {
-    type_name::<T>()
-}
-
 use rand::Rng;
 use image::{open, RgbImage};
-use ndarray::{s, Array, Array1, Array2, Array3};
+use ndarray::{s, Array1, Array2, Array3};
 use delaunator::{triangulate, Point};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
-use std::{f64::consts::PI, path::PathBuf};
+use std::path::PathBuf;
 
-use crate::mesh::Mesh;
-
-trait Geometry {
-    fn distance(&self, other: &Self) -> f64;
-    fn line(&self, other: &Self) -> Vec<Self> where Self: Sized;
-    fn circle(&self, radius: f64) -> Vec<Self> where Self: Sized;
-}
-
-impl Geometry for Point {
-    fn distance(&self, other: &Point) -> f64 {
-        f64::sqrt( (self.x - other.x).powi(2) + (self.y - other.y).powi(2) )
-    }
-
-    fn line(&self, other: &Point) -> Vec<Point> {
-        let mut line = vec![self.clone()];
-        let (x_slope, y_slope) = (self.x - other.x, self.y - other.y);
-        let d = self.distance(other);
-
-        for increment in 0..d as i32 {
-            let new_point = Point{
-                x: (self.x - increment as f64 * (x_slope/d)).round(),
-                y: (self.y - increment as f64 * (y_slope/d)).round()
-            };
-
-            if new_point != line[line.len()-1] {line.push(new_point);}
-        }
-
-        line
-    }
-
-    fn circle(&self, radius: f64) -> Vec<Point> {
-        let mut circle = vec![Point{ x: self.x + radius, y: self.y}];
-
-        for phi in Array::linspace(0., 2.* PI, 100) {
-            let new_point = Point{ 
-                x: (self.x + radius * f64::cos(phi)).round(),
-                y: (self.y + radius * f64::sin(phi)).round()
-            };
-    
-            if new_point != circle[circle.len()-1] {circle.push(new_point);}
-        }
-    
-        circle
-    }   
-}
+use crate::mesh::*;
+type LUT = (Vec<Vec<(usize, usize)>>, Vec<Array1<u8>>);
 
 /// read the image at <path> and return the data as [`Array3<u8>`]
 pub fn read_image(path: &PathBuf) -> Array3<u8> {
@@ -239,17 +191,17 @@ pub fn build_mesh_image(mesh: &Mesh) -> Array3<u8> {
     let (width, height) = (points[0].x as usize + 1, points[0].y as usize + 1);
     let mut mesh_image = Array3::<u8>::from_elem((height, width, 3), 255);
 
-    // // draw nodes as hollow circles
-    // for point in points {
-    //     for circum_point in point.circle(1.) {
-    //         _brush(&mut mesh_image, circum_point, 2);
-    //     }
-    // }
+    // draw nodes as hollow circles
+    for point in points {
+        for circum_point in point.circle(1.) {
+            _brush(&mut mesh_image, circum_point, 1);
+        }
+    }
 
     // color the points and edges of the triangulation in tri
     for triplet in tri.triangles.chunks(3).into_iter() {
 
-        if triplet[0] < 4 || triplet[1] < 4 || triplet[2] < 4  {continue;}
+        // if triplet[0] < 4 || triplet[1] < 4 || triplet[2] < 4  {continue;}
 
         let p1 = &points[triplet[0]];
         let p2 = &points[triplet[1]];
@@ -264,25 +216,49 @@ pub fn build_mesh_image(mesh: &Mesh) -> Array3<u8> {
 }
 
 /// build pixel groupings for a mesh of triangles
-pub fn lookup_table(mesh: Mesh) -> Vec<Vec<usize>> {
-    let lookup_table = Vec::<Vec<usize>>::new();
-
-    for point in mesh.get_points() {
-        let index = mesh.contains_where(point);
-        println!("{:?}", index);
+pub fn color_lookup_table(mesh: Mesh, image: &Array3<u8>) -> LUT {
+    
+    let (width, height, n_triangles) = mesh.get_size();
+    let mut pixel_groups = vec![Vec::<(usize, usize)>::new(); n_triangles];
+    let mut temp_color = vec![Array1::<u64>::zeros(3); n_triangles];
+    let mut color_table = Vec::<Array1<u8>>::new();
+    
+    for x in 0..width {
+        for y in 0..height {
+            let i = mesh.contains_where(Point{x: x as f64, y: y as f64});
+            temp_color[i] += &image.slice(s![y, x,..]).mapv(u64::from);
+            pixel_groups[i].push((y, x));
+        }
     }
 
-    lookup_table
+
+    for (col, pts) in temp_color.iter_mut().zip(&pixel_groups) {
+        if pts.len() != 0 {
+            color_table.push(col.map(|x| (*x / pts.len() as u64) as u8));
+        }
+        else {
+            color_table.push(Array1::<u8>::zeros(3))
+        }
+    }
+
+    (pixel_groups, color_table)
 }
 
-/// 
-pub fn color(hashtable: Vec<Vec<usize>>, mut image: Array3<u8>) -> Array3<u8> {
-    panic!("AAAAH")
-}
+/// apply a color lookup table 
+pub fn color(hashtable: LUT, original_image: Array3<u8>) -> Array3<u8> {
 
+    let mut image = Array3::<u8>::zeros(original_image.dim()); 
+    for (group, color) in hashtable.0.into_iter().zip(hashtable.1.into_iter()) {
+        for pixel in group.into_iter() {
+            image.slice_mut(s![pixel.0, pixel.1, ..]).assign(&color);
+        }
+    }
+
+    image
+}
 
 /// helper function for build_mesh_image, not public
-/// (maybe) fill image at a location given by point w/ 0
+/// (maybe) fill image at a location given by point w/ black
 fn _brush(image: &mut Array3<u8>, point: Point, brush_size: i32) -> () {
 
     let (height, width, _) = image.dim();
@@ -299,72 +275,3 @@ fn _brush(image: &mut Array3<u8>, point: Point, brush_size: i32) -> () {
     image.slice_mut(s![y - brush_size..y + brush_size,
                             x - brush_size..x + brush_size, ..]).fill(0)
 }
-
-
-// pub fn calculate_colors(
-//     original_image: &Picture,
-//     mesh: Vec<Triangle>
-// ) -> (Array2<u8>, Array2<usize>) {
-
-//     let mut colors = Array2::<u64>::zeros((mesh.len(), 3));
-//     let mut triangle_table = Array2::<usize>::zeros(original_image.dimension());
-//     let mut triangle_pixel_counts = Array1::<usize>::ones(mesh.len());
-
-//     let (width, height) = original_image.dimension();
-
-//     for w in 0..width {
-//         for h in 0..height {
-//             for (t, triangle) in mesh.iter().enumerate() {
-
-//                 if triangle.contains(Point{ x: w as f64, y: h as f64 }) {
-
-//                     let pixel = original_image.get_pixel(w, h);
-//                     let (r, g, b) = (pixel[[0]], pixel[[1]], pixel[[2]]);
-
-//                     triangle_table[[w, h]] = t;
-//                     triangle_pixel_counts[t] += 1;
-
-//                     colors[[t, 0]] += r as u64;
-//                     colors[[t, 1]] += g as u64;
-//                     colors[[t, 2]] += b as u64;
-//                 }
-//             }
-//         }
-//     }
-
-//     for i in 0..mesh.len() {
-//         colors[[i, 0]] /= triangle_pixel_counts[[i]] as u64;
-//         colors[[i, 1]] /= triangle_pixel_counts[[i]] as u64;
-//         colors[[i, 2]] /= triangle_pixel_counts[[i]] as u64;
-//     }
-
-//     (
-//         colors.mapv(|x| u8::try_from(x).expect(&format!("{} encountered", x))),
-//         triangle_table,
-//     )
-// }
-
-// fn get_cdf(source: Array2<u8>, power: f64) -> (Array1<f64>, Array1<f64>) {
-//     let weight: f64 = source.mapv(|x| f64::from(x).powf(power)).sum();
-//     let array_shape = source.dim();
-
-//     let mut cdf_x = Array1::<f64>::zeros(array_shape.0);
-//     let mut cdf_y = Array1::<f64>::zeros(array_shape.1);
-
-//     cdf_x[0] = source.column(0).mapv(|x| f64::from(x).powf(power)).sum();
-//     cdf_y[0] = source.row(0).mapv(|x| f64::from(x).powf(power)).sum();
-
-//     // calculate x cdf
-//     for i in 1..array_shape.0 {
-//         cdf_x[i] = source.column(i).mapv(|x| f64::from(x).powf(power)).sum();
-//         cdf_x[i] += cdf_x[i-1];
-//     }
-
-//     // calculate x cdf
-//     for i in 1..array_shape.1 {
-//         cdf_y[i] = source.row(i).mapv(|x| f64::from(x).powf(power)).sum();
-//         cdf_y[i] += cdf_y[i-1];
-//     }
-
-//     (cdf_x / weight, cdf_y / weight)
-// }
