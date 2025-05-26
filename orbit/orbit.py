@@ -1,7 +1,7 @@
-import matplotlib.pyplot as plt
-from matplotlib import widgets
 from matplotlib.gridspec import GridSpec
 from cartopy.crs import Robinson, Geodetic
+import matplotlib.pyplot as plt
+from matplotlib import widgets
 from astropy import units
 import scienceplots
 import numpy as np
@@ -12,20 +12,42 @@ fig = plt.figure(figsize=[10, 7])
 gs = GridSpec(5, 1, fig,
               height_ratios=[0.95, 0.025, 0.025, 0.025, 0.025])
 
-mouse_active, event_was_close = False, False
-ax = fig.add_subplot(gs[0, 0], projection=Robinson())
-ax.coastlines(resolution='50m', lw=0.7, animated=False)
+native = Geodetic()
+proj = Robinson()
+mouse_active, event_was_close = False, 0
+ax = fig.add_subplot(gs[0, 0], projection=proj)
+ax.coastlines(resolution='50m', lw=0.7)
 ax.gridlines(animated=False)
 ax.set_global()
 
-apogee, = ax.plot(0, 0, marker='o', c='k', transform=Robinson())
-orbit, = ax.plot([-180e5, 180e5], [0, 0], c='k', transform=Robinson())
+perigee, = ax.plot(0, 0, marker='o', c='b', ls='none', 
+                   transform=native, label='Perigee')
+apogee, = ax.plot(180, 0, marker='o', ls='none',
+                  transform=native, label='Apogee',
+                  markeredgecolor='b', markerfacecolor='w')
+orbit, = ax.plot(range(-180, 180), [0 for _ in range(360)], 
+                 c='b', transform=native, zorder=0)
 
 def click_was_close(event):
+
+    if event.inaxes != ax: return
+
+    event_x, event_y = native.transform_point(
+            event.xdata,
+            event.ydata,
+            proj
+        )
+    
     global event_was_close
-    dx = apogee.get_xdata() - event.xdata
-    dy = apogee.get_ydata() - event.ydata
-    event_was_close = np.sqrt(dx**2 + dy**2) < 3e5
+    dx = lambda vec: vec.get_xdata() - event_x
+    dy = lambda vec: vec.get_ydata() - event_y
+
+    if np.sqrt(dx(perigee)**2 + dy(perigee)**2) % 360 < 5: 
+        event_was_close = 1
+    elif np.sqrt(dx(apogee)**2 + dy(apogee)**2) % 360 < 5:
+        event_was_close = 2
+    else:
+        print("asdasd")
 
 def button_press_callback(event):
     global mouse_active
@@ -36,7 +58,7 @@ def button_release_callback(_):
     global mouse_active
     global event_was_close
     mouse_active = False
-    event_was_close = False
+    event_was_close = 0
 
 def button_move_callback(event):
     if not mouse_active \
@@ -44,102 +66,76 @@ def button_move_callback(event):
         or event.inaxes is None:
         return
     else:
-        apogee.set_xdata([event.xdata])
-        apogee.set_ydata([event.ydata])
 
-        # update ellipse...
-        latitudes, longitudes = get_ellipse()
-        orbit.set_xdata(longitudes)
-        orbit.set_ydata(latitudes)
+        perigee_vector, apogee_vector, coords = get_ellipse(event)
+        perigee.set_data(perigee_vector[1:, np.newaxis])
+        apogee.set_data(apogee_vector[1:, np.newaxis])
 
+        # orbit.set_data(*get_ellipse())
 
         fig.canvas.draw_idle()
-        # fig.canvas.flush_events()
 
 fig.canvas.mpl_connect('button_press_event', button_press_callback)
 fig.canvas.mpl_connect('button_release_event', button_release_callback)
 fig.canvas.mpl_connect('motion_notify_event', button_move_callback)
 
-eccentricity_slider = widgets.Slider(fig.add_subplot(gs[2, 0]), r"$e$", 0, 1, valinit=0)
-periapsis_slider = widgets.Slider(fig.add_subplot(gs[1, 0]), r"$r_a$", 100, 36_000, valinit=400, valfmt=r"%.1f km")
-inclination_slider = widgets.Slider(fig.add_subplot(gs[3, 0]), r"$i$", 0, 180, valinit=0, valfmt=r"%+.1f$\,^\circ$")
-raan_slider = widgets.Slider(fig.add_subplot(gs[4, 0]), r"$\Omega_\mathrm{RA}$", 0, 360, valinit=0, valfmt=r"%+.1f$\,^\circ$")
+eccentricity_slider = widgets.Slider(
+    fig.add_subplot(gs[2, 0]), r"$e$", 0, 1, valinit=0)
+periapsis_slider = widgets.Slider(
+    fig.add_subplot(gs[1, 0]), r"$r_a$", 100, 36_000, 
+    valinit=400, valfmt=r"%.1f km")
+inclination_slider = widgets.Slider(
+    fig.add_subplot(gs[3, 0]), r"$i$", 0, 180, 
+    valinit=0, valfmt=r"%+.1f$\,^\circ$")
+raan_slider = widgets.Slider(
+    fig.add_subplot(gs[4, 0]), r"$\Omega_\mathrm{RA}$", 0, 360, 
+    valinit=0, valfmt=r"%+.1f$\,^\circ$")
 
-# def get_widget_data():
+def get_ellipse(event):
 
-#     return {
-#         "alt": periapsis_slider.val << units.km,
-#         "inc": inclination_slider.val << units.deg,
-#         "raan": raan_slider.val << units.deg,
-#         "ecc": eccentricity_slider.val << units.one,
-#     }
+    ecc = eccentricity_slider.val << units.one
+    event_coords = native.transform_point(
+        event.xdata,
+        event.ydata,
+        proj
+    )
 
-def get_ellipse(**kwargs):
+    match event_was_close:
+        case 1:                             # perigee was clicked
+            perigee_vector = np.array([
+                r_p := periapsis_slider.val,
+                *event_coords
+                ])
+            
+            apogee_longitude = (perigee_vector[1] - 180) % 360
+            if apogee_longitude > 180: apogee_longitude -= 360
 
-    apogee_lon = apogee.get_xdata()
-    apogee_lat = apogee.get_ydata()
+            apogee_vector = np.array([
+                r_a := r_p * (1+ecc)/(1-ecc),
+                apogee_longitude,
+                -perigee_vector[2]
+                ])
+        
+        case 2:                             # apogee was clicked
+            apogee_vector = np.array([
+                r_a := periapsis_slider.val * (1+ecc)/(1-ecc),
+                *event_coords
+                ])
+            
+            perigee_longitude = (apogee_vector[1] - 180) % 360
+            if perigee_longitude > 180: perigee_longitude -= 360
+            
+            perigee_vector = np.array([
+                r_p := r_a * (1-ecc)/(1+ecc),
+                perigee_longitude,
+                -apogee_vector[2]
+                ])
 
-    latitudes = np.linspace(-180, 180, 360)
-    longitudes = [apogee_lon for _ in range(360)]
+    # calculate ellipse...
+    center = ...
 
-    return latitudes, longitudes
-
-
-# # def propagate(orbit):
-
-# #     angular_velocity_earth = 360 / (3600 * 24)
-
-# #     one_revolution = orbit.to_ephem(strategy=EpochBounds(
-# #         min_epoch=0 << units.second, 
-# #         max_epoch=orbit.period)
-# #     )
-
-# #     data = [
-# #             coordinates.cartesian_to_spherical(
-# #                 d.x, d.y, d.z)[1:] 
-# #                 for d in one_revolution.sample()
-# #             ]
-
-# #     longitude, latitude = [], []
-# #     print("NEW!!!")
-# #     for d, t in zip(data, np.linspace(0., orbit.period.value, len(data), endpoint=True)):
-
-# #         lon = (d[1] << units.deg).value # - angular_velocity_earth * t
-# #         lat = (d[0] << units.deg).value
-
-# #         print(f"{lon:.0f} {lat:.0f}")
-
-# #         latitude.append(lat)
-# #         longitude.append(lon)
-
-# #     return latitude, longitude
-
-# orbit, = ax.plot([], [], transform=Geodetic())
-
-# def update_orbit(_):
-#     # sattelite = Orbit.from_classical(Earth, )
-#     # lats, lons = propagate(sattelite)
-
-
-    
-#     # args = get_widget_data()
-#     # lons = np.linspace(0, 360, 360)
-#     # lats = args[2] * np.cos((lons - 180) * np.pi/180)
-#     lats, lons = propagate(Orbit.frozen(Earth, **get_widget_data()))
-
-#     orbit.set_xdata(lons)
-#     orbit.set_ydata(lats)
-#     fig.canvas.draw_idle()
-
-
-# eccentricity_slider.on_changed(update_orbit)
-# periapsis_slider.on_changed(update_orbit)
-# inclination_slider.on_changed(update_orbit)
-# raan_slider.on_changed(update_orbit)
-
-# update_orbit(...)
-# plt.show()
-
+    return perigee_vector, apogee_vector, [0]
 
 plt.tight_layout()
+fig.legend(loc='outside upper center', ncol=2, fontsize=20)
 plt.show()
