@@ -1,8 +1,8 @@
 from matplotlib.gridspec import GridSpec
 from cartopy.crs import Robinson, Geodetic
 import matplotlib.pyplot as plt
+from astropy import coordinates
 from matplotlib import widgets
-from astropy import units
 import scienceplots
 import numpy as np
 
@@ -12,11 +12,16 @@ fig = plt.figure(figsize=[10, 7])
 gs = GridSpec(5, 1, fig,
               height_ratios=[0.95, 0.025, 0.025, 0.025, 0.025])
 
+MU = 5.972e24 * 6.6743e-11                      # in m^3 s^-2
+OMEGA = 360 / (3600 * 24)                       # in deg / sec
+T = lambda a: 2*np.pi * np.sqrt((a*1e3)**3/MU)  # in s
+
 native = Geodetic()
 proj = Robinson()
 mouse_active, event_was_close = False, 0
+
 ax = fig.add_subplot(gs[0, 0], projection=proj)
-ax.coastlines(resolution='50m', lw=0.7)
+ax.coastlines(resolution='50m', lw=0.7, animated=False)
 ax.gridlines(animated=False)
 ax.set_global()
 
@@ -46,19 +51,11 @@ def click_was_close(event):
         event_was_close = 1
     elif np.sqrt(dx(apogee)**2 + dy(apogee)**2) % 360 < 5:
         event_was_close = 2
-    else:
-        print("asdasd")
 
 def button_press_callback(event):
     global mouse_active
     mouse_active = True
     click_was_close(event)
-
-def button_release_callback(_):
-    global mouse_active
-    global event_was_close
-    mouse_active = False
-    event_was_close = 0
 
 def button_move_callback(event):
     if not mouse_active \
@@ -66,18 +63,34 @@ def button_move_callback(event):
         or event.inaxes is None:
         return
     else:
+        event_coords = np.array(native.transform_point(
+            event.xdata,
+            event.ydata,
+            proj
+        ))
 
-        perigee_vector, apogee_vector, coords = get_ellipse(event)
-        perigee.set_data(perigee_vector[1:, np.newaxis])
-        apogee.set_data(apogee_vector[1:, np.newaxis])
+        match event_was_close:
+            case 0: return  # nothing was clicked
+            case 1:         # perigee was clicked
+                perigee.set_data(*event_coords[:, np.newaxis])
+            case 2:         # apogee was clicked
+                apogee.set_data(*event_coords[:, np.newaxis])
 
-        # orbit.set_data(*get_ellipse())
+def button_release_callback(_):
+    global mouse_active
+    global event_was_close
+    mouse_active = False
+    event_was_close = 0
 
-        fig.canvas.draw_idle()
+    orbit_track = calculate_ellipse(...)
+    orbit.set_data(*ground_track(orbit_track))
+    print(len(orbit.get_xdata()))
+
+    fig.canvas.draw_idle()
 
 fig.canvas.mpl_connect('button_press_event', button_press_callback)
-fig.canvas.mpl_connect('button_release_event', button_release_callback)
 fig.canvas.mpl_connect('motion_notify_event', button_move_callback)
+fig.canvas.mpl_connect('button_release_event', button_release_callback)
 
 eccentricity_slider = widgets.Slider(
     fig.add_subplot(gs[2, 0]), r"$e$", 0, 1, valinit=0)
@@ -87,54 +100,78 @@ periapsis_slider = widgets.Slider(
 inclination_slider = widgets.Slider(
     fig.add_subplot(gs[3, 0]), r"$i$", 0, 180, 
     valinit=0, valfmt=r"%+.1f$\,^\circ$")
-raan_slider = widgets.Slider(
+right_ascencion_slider = widgets.Slider(
     fig.add_subplot(gs[4, 0]), r"$\Omega_\mathrm{RA}$", 0, 360, 
     valinit=0, valfmt=r"%+.1f$\,^\circ$")
 
-def get_ellipse(event):
+def calculate_ellipse(_):
 
-    ecc = eccentricity_slider.val << units.one
-    event_coords = native.transform_point(
-        event.xdata,
-        event.ydata,
-        proj
-    )
+    ecc = eccentricity_slider.val
+    perigee_radius = periapsis_slider.val
+    apogee_radius = perigee_radius * (1+ecc)/(1-ecc)
+    
+    a = 0.5 * (perigee_radius + apogee_radius)
+    b = a * np.sqrt(1 - ecc**2)
 
-    match event_was_close:
-        case 1:                             # perigee was clicked
-            perigee_vector = np.array([
-                r_p := periapsis_slider.val,
-                *event_coords
-                ])
-            
-            apogee_longitude = (perigee_vector[1] - 180) % 360
-            if apogee_longitude > 180: apogee_longitude -= 360
+    ap_theta, ap_phi = native.transform_point(*apogee.get_data(), proj)
+    center = np.array(coordinates.spherical_to_cartesian(
+        apogee_radius - perigee_radius, 
+        ap_theta, 
+        ap_phi))
+    
+    i = inclination_slider.val * np.pi/180
+    w = right_ascencion_slider.val * np.pi/180
 
-            apogee_vector = np.array([
-                r_a := r_p * (1+ecc)/(1-ecc),
-                apogee_longitude,
-                -perigee_vector[2]
-                ])
-        
-        case 2:                             # apogee was clicked
-            apogee_vector = np.array([
-                r_a := periapsis_slider.val * (1+ecc)/(1-ecc),
-                *event_coords
-                ])
-            
-            perigee_longitude = (apogee_vector[1] - 180) % 360
-            if perigee_longitude > 180: perigee_longitude -= 360
-            
-            perigee_vector = np.array([
-                r_p := r_a * (1-ecc)/(1+ecc),
-                perigee_longitude,
-                -apogee_vector[2]
-                ])
+    if i == w == 0:
+        u = np.array([1, 0, 0])
+        v = np.array([0, 1, 0])
+    else:
+        si, ci = np.sin(i), np.cos(i)
+        sw, cw = np.sin(w), np.cos(w)
 
-    # calculate ellipse...
-    center = ...
+        u = np.array([cw * ci, sw * ci, si])
+        u /= np.linalg.norm(u)
 
-    return perigee_vector, apogee_vector, [0]
+        v = np.array([np.cos(w+np.pi/2), 
+                      np.sin(w+np.pi/2), 
+                      0])
+        v /= np.linalg.norm(v)
+
+    return lambda t: np.expand_dims(center, -1) \
+        + a * np.outer(u, np.cos(t)) \
+        + b * np.outer(v, np.sin(t))
+
+def ground_track(track):
+
+    r, theta, phi = coordinates.cartesian_to_spherical(
+        *track(np.linspace(0, 2 * np.pi, 1000)))
+    
+    # up until here all seems correct
+    print(np.min(theta), np.max(theta))
+    print(np.min(phi), np.max(phi))
+    print(np.min(r), np.max(r))
+
+    # something goes wrong here?
+    x, y, z = proj.transform_points(native, 
+                                    np.array([x.value * 180/np.pi for x in phi]),
+                                    np.array([x.value * 180/np.pi for x in theta])).T 
+
+    # print(f'x extent: {np.min(x):.2f}, {np.max(x):.2f}')
+    # print(f'y extent: {np.min(y):.2f}, {np.max(y):.2f}')
+    # print(f'z extent: {np.min(z):.2f}, {np.max(z):.2f}')
+
+    # dmax = np.max([np.max(x), np.max(y), np.max(z)])
+    # ax.set_xlim(-dmax, dmax)
+    # ax.set_ylim(-dmax, dmax)
+    # ax.set_zlim(-dmax, dmax)
+    
+    # return track(t).T
+    return x, y
+
+eccentricity_slider.on_changed(calculate_ellipse)
+periapsis_slider.on_changed(calculate_ellipse)
+inclination_slider.on_changed(calculate_ellipse)
+right_ascencion_slider.on_changed(calculate_ellipse)
 
 plt.tight_layout()
 fig.legend(loc='outside upper center', ncol=2, fontsize=20)
