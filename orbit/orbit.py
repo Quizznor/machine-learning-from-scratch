@@ -1,7 +1,7 @@
 from matplotlib.gridspec import GridSpec
 from cartopy.crs import Robinson, Geodetic
+from astropy import coordinates, units
 import matplotlib.pyplot as plt
-from astropy import coordinates
 from matplotlib import widgets
 import scienceplots
 import numpy as np
@@ -19,6 +19,16 @@ T = lambda a: 2*np.pi * np.sqrt((a*1e3)**3/MU)  # in s
 native = Geodetic()
 proj = Robinson()
 mouse_active, event_was_close = False, 0
+
+# ax = fig.add_subplot(gs[0, 0])
+
+# perigee, = ax.plot(0, 0, marker='o', c='b', ls='none', 
+#                    label='Perigee')
+# apogee, = ax.plot(180, 0, marker='o', ls='none',
+#                   label='Apogee',
+#                   markeredgecolor='b', markerfacecolor='w')
+# orbit, = ax.plot(range(-180, 180), [0 for _ in range(360)], 
+#                  c='b', zorder=0)
 
 ax = fig.add_subplot(gs[0, 0], projection=proj)
 ax.coastlines(resolution='50m', lw=0.7, animated=False)
@@ -84,8 +94,6 @@ def button_release_callback(_):
 
     orbit_track = calculate_ellipse(...)
     orbit.set_data(*ground_track(orbit_track))
-    print(len(orbit.get_xdata()))
-
     fig.canvas.draw_idle()
 
 fig.canvas.mpl_connect('button_press_event', button_press_callback)
@@ -98,10 +106,10 @@ periapsis_slider = widgets.Slider(
     fig.add_subplot(gs[1, 0]), r"$r_a$", 100, 36_000, 
     valinit=400, valfmt=r"%.1f km")
 inclination_slider = widgets.Slider(
-    fig.add_subplot(gs[3, 0]), r"$i$", 0, 180, 
+    fig.add_subplot(gs[3, 0]), r"$i$", -90, 90, 
     valinit=0, valfmt=r"%+.1f$\,^\circ$")
 right_ascencion_slider = widgets.Slider(
-    fig.add_subplot(gs[4, 0]), r"$\Omega_\mathrm{RA}$", 0, 360, 
+    fig.add_subplot(gs[4, 0]), r"$\Omega_\mathrm{RA}$", -180, 180, 
     valinit=0, valfmt=r"%+.1f$\,^\circ$")
 
 def calculate_ellipse(_):
@@ -145,33 +153,23 @@ def ground_track(track):
 
     r, theta, phi = coordinates.cartesian_to_spherical(
         *track(np.linspace(0, 2 * np.pi, 1000)))
-    
-    # up until here all seems correct
-    print(np.min(theta), np.max(theta))
-    print(np.min(phi), np.max(phi))
-    print(np.min(r), np.max(r))
 
     # something goes wrong here?
     x, y, z = proj.transform_points(native, 
-                                    np.array([x.value * 180/np.pi for x in phi]),
-                                    np.array([x.value * 180/np.pi for x in theta])).T 
-
-    # print(f'x extent: {np.min(x):.2f}, {np.max(x):.2f}')
-    # print(f'y extent: {np.min(y):.2f}, {np.max(y):.2f}')
-    # print(f'z extent: {np.min(z):.2f}, {np.max(z):.2f}')
-
-    # dmax = np.max([np.max(x), np.max(y), np.max(z)])
-    # ax.set_xlim(-dmax, dmax)
-    # ax.set_ylim(-dmax, dmax)
-    # ax.set_zlim(-dmax, dmax)
+                                    phi.degree - 180, 
+                                    theta.degree).T
     
-    # return track(t).T
+    x, y = phi.degree - 180, theta.degree
+
     return x, y
 
 eccentricity_slider.on_changed(calculate_ellipse)
 periapsis_slider.on_changed(calculate_ellipse)
 inclination_slider.on_changed(calculate_ellipse)
 right_ascencion_slider.on_changed(calculate_ellipse)
+
+# ax.set_xlim(-180, 180)
+# ax.set_ylim(-90, 90)
 
 plt.tight_layout()
 fig.legend(loc='outside upper center', ncol=2, fontsize=20)
