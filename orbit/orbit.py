@@ -154,14 +154,7 @@ def ground_track(track):
     r, theta, phi = coordinates.cartesian_to_spherical(
         *track(np.linspace(0, 2 * np.pi, 1000)))
 
-    # something goes wrong here?
-    x, y, z = proj.transform_points(native, 
-                                    phi.degree - 180, 
-                                    theta.degree).T
-    
-    x, y = phi.degree - 180, theta.degree
-
-    return x, y
+    return phi.degree - 180, theta.degree
 
 eccentricity_slider.on_changed(calculate_ellipse)
 periapsis_slider.on_changed(calculate_ellipse)
