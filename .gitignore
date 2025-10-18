@@ -1,10 +1,12 @@
 *.out
 *-venv/
 *.env*
+**/__pycache__/
 
 # decision tree
 decision-tree/decision-tree
 decision-tree/seals_*
+decision-tree/target/*
 
 # digit classifier
 digit-classifier/digit-classifier

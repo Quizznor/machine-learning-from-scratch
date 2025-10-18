@@ -4,11 +4,11 @@ from astropy import coordinates, units
 from matplotlib.widgets import Slider
 import matplotlib.pyplot as plt
 import scienceplots
-from . import np
 import PIL
 
 from .constants import *
 from .orbit import Orbit
+from . import np
 
 
 plt.style.use(['science'])
@@ -26,23 +26,15 @@ class Window(plt.Figure):
             self.fig,
             height_ratios=[0.95, 0.02, 0.02, 0.02, 0.02, 0.02],
         )
-
-        self.view_3d = self.__init_3d_view(blue_marble=False)
-        self.view_2d = self.__init_2d_view()
+        
         self.config = self.__init_config()
+        self.orbit = Orbit(self.__get_current_config())
 
-        self.orbit = Orbit(orbital_elements = {
-            'a' : 2 * EARTH_RADIUS_KM,      # semi-major axis (km)
-            'e': 0.3,                       # eccentricity (0, 1)
-            'omega' : np.pi/4,              # RA of ascending node (rad)
-            'i': 30 * np.pi/180,            # inclination (rad)
-            }
-        )
+        self.view_3d, self.track_3d = self.__init_3d_view(blue_marble=False)
+        self.view_2d, self.track_2d = self.__init_2d_view()
 
-        ellipse = self.orbit._get_ellipse()
-        test = ellipse(np.linspace(0, 2*np.pi, 100))
-
-        self.view_3d.plot(*test, lw=2)
+        for slider in self.config.values():
+            slider.on_changed(self.__update_orbit)
 
         plt.subplots_adjust(wspace=0)
         plt.show()
@@ -85,7 +77,10 @@ class Window(plt.Figure):
         view_3d.set_box_aspect((1, 1, 1))
         view_3d.set_axis_off()
 
-        return view_3d
+        _, samples_points = self.orbit.get_samples(100)
+        track_3d = view_3d.plot(*self.orbit(samples_points), lw=2)[0]
+
+        return view_3d, track_3d
 
 
     def __init_2d_view(self) -> plt.Axes:
@@ -95,13 +90,57 @@ class Window(plt.Figure):
         view_2d.gridlines(animated=False)
         view_2d.set_global()
 
-        return view_2d
-    
+        sample_times, sample_points = self.orbit.get_samples(100)
+        r, theta, phi = Orbit.to_spherical(self.orbit(sample_points))
+
+        track_2d = view_2d.plot(phi.degree - 180, 
+                                theta.degree, 
+                                transform=Geodetic(),
+                                c='g', lw=2)[0]
+
+        return view_2d, track_2d
+
 
     def __init_config(self) -> dict:
 
         config = {}
 
-        for k, param in enumerate(["a", "e", "i", r"\Omega", r"\omega"], 1):
+        for k, param in enumerate([r"r_\mathrm{p}", "e", "i", r"\Omega", r"\omega"], 1):
             config[param] = Slider(self.fig.add_subplot(self.__gs[k, 0]), 
                                    f"${param}$", **PARAM_LIMITS[param])
+        
+        return config
+    
+
+    def __update_orbit(self, _) -> int:
+
+        self.orbit = Orbit(self.__get_current_config())
+
+        # TODO: calculate anomalies w.r.t. orbital speed
+        sample_times, sample_points = self.orbit.get_samples(100)
+        track_coordinates = self.orbit(sample_points)
+        self.track_3d.set_data_3d(*track_coordinates)
+
+        r, theta, phi = Orbit.to_spherical(self.orbit(sample_points))
+        self.track_2d.set_data(phi.degree - 180, theta.degree)
+        
+        return 1
+
+
+    def __get_current_config(self) -> dict:
+
+        config = {}
+
+        for key, slider in self.config.items():
+
+            if key == r"r_\mathrm{p}":
+                config['a'] = Orbit.calculate_semi_major_axis(
+                    self.config[r"r_\mathrm{p}"].val + EARTH_RADIUS_KM, 
+                    self.config['e'].val
+                )
+            elif key in [r"\Omega", r"\omega", "i"]:
+                config[key] = slider.val * np.pi/180.
+            else:
+                config[key] = slider.val
+
+        return config
