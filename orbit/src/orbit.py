@@ -66,12 +66,11 @@ class Orbit():
     
 
     @cache
-    def get_samples(self, n_samples: int = 100) -> Tuple[np.ndarray]:
+    def get_samples(self, n_samples_per_orbit: int = 100) -> Tuple[np.ndarray]:
         """get uniformly distributed time (seconds) and corresponding true anomaly"""
 
         e = self.orbital_elements["e"]
-        M = np.linspace(0, 2*np.pi, n_samples)
-        E = np.where(e < 0.8, M, np.pi*np.ones_like(M))
+        M, E = [np.linspace(0, N_ORBITS*2*np.pi, N_ORBITS*n_samples_per_orbit) for _ in range(2)]
 
         # numerically solve for true anomaly 
         # max. 10 iterations for Newton method
@@ -83,9 +82,15 @@ class Orbit():
             if np.all(np.abs(dE) < 1e-3):
                 break
 
-        return M / np.sqrt(self.mu/self.orbital_elements["a"]**3), E
+        return M / np.sqrt(self.mu/(self.orbital_elements["a"]*1e3)**3), E
 
 
     @staticmethod
     def to_spherical(cartesian: np.ndarray) -> np.ndarray:
         return coordinates.cartesian_to_spherical(*cartesian)
+    
+
+    @staticmethod
+    def add_rotation(seconds: np.ndarray, lon: np.ndarray) -> np.ndarray:
+        print(f"len orbit = {seconds[-1]/3600:.2f} h")
+        return lon - 180/np.pi * seconds * EARTH_ROTATION

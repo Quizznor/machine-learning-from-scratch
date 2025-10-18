@@ -92,9 +92,9 @@ class Window(plt.Figure):
 
         sample_times, sample_points = self.orbit.get_samples(100)
         r, theta, phi = Orbit.to_spherical(self.orbit(sample_points))
+        lon, lat = self.orbit.add_rotation(sample_times, phi.degree - 180), theta.degree
 
-        track_2d = view_2d.plot(phi.degree - 180, 
-                                theta.degree, 
+        track_2d = view_2d.plot(lon, lat, 
                                 transform=Geodetic(),
                                 c='g', lw=2)[0]
 
@@ -116,13 +116,13 @@ class Window(plt.Figure):
 
         self.orbit = Orbit(self.__get_current_config())
 
-        # TODO: calculate anomalies w.r.t. orbital speed
         sample_times, sample_points = self.orbit.get_samples(100)
         track_coordinates = self.orbit(sample_points)
         self.track_3d.set_data_3d(*track_coordinates)
 
         r, theta, phi = Orbit.to_spherical(self.orbit(sample_points))
-        self.track_2d.set_data(phi.degree - 180, theta.degree)
+        lon, lat = self.orbit.add_rotation(sample_times, phi.degree - 180), theta.degree
+        self.track_2d.set_data(lon, lat)
         
         return 1
 
