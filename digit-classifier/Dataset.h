@@ -10,9 +10,8 @@ class Dataset
         // parse image data from binary file
         void read_MNIST(std::string file_name, int n_max=0) 
         {
-            std::ifstream file (file_name);
-
             std::cout << "Reading " << file_name << "... ";
+            std::ifstream file (file_name);
             
             // read header information
             if (file.is_open()) 
@@ -21,7 +20,10 @@ class Dataset
                 file.read ((char*)&n_images, sizeof(n_images));
             }
 
-            else {std::cout << "Something went wrong when reading " << file_name << std::endl;}
+            else {
+                std::cout << "Something went wrong when reading " << file_name << std::endl;
+                return;
+            }
 
             // because data format is big endian (vs. me using small endian)
             magic_number = __builtin_bswap32(magic_number);

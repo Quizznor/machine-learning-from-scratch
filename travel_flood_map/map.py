@@ -82,7 +82,7 @@ class Map():
         n_levels = kwargs.get("n_levels", 6)
         max_time = kwargs.get("max_time", False)
 
-        plt.rcParams["font.family"] = 'Palatino'
+        # plt.rcParams["font.family"] = 'Palatino'
         # plt.rcParams["text.usetex"] = True
 
         fig, (ax, cax) = plt.subplots(1, 2, width_ratios = [1, 0.03])

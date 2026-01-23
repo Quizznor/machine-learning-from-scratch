@@ -66,6 +66,8 @@ struct NLayer
         // use ReLU for intermediate layers, use logistic function for output
         if (layer_mode==output) {return logistic_function(Input);}
         else if (layer_mode==input || layer_mode==hidden) {return ReLU(Input);}
+        else {return logistic_function(Input);}
+
     }
 
     // sigmoid function ( caps between 0 and 1, sigmoid(0) = 0.5 )
@@ -97,6 +99,8 @@ struct NLayer
     {
         if (layer_mode==output) {return d_logistic_function(Input);}
         else if (layer_mode==input || layer_mode==hidden) {return d_ReLU(Input);}
+        else {return d_logistic_function(Input);}
+
     }
 
     // derivative of sigmoid

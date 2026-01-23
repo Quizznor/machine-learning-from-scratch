@@ -27,8 +27,8 @@ int main()
 {
 
     Dataset TrainingSet;
-    TrainingSet.read_MNIST("dataset/train-images-idx3-ubyte");     // read images
-    TrainingSet.read_MNIST("dataset/train-labels-idx1-ubyte");     // read labels
+    TrainingSet.read_MNIST("/home/filip/Public/machine-learning-from-scratch/digit-classifier/dataset/train-images.idx3-ubyte");     // read images
+    TrainingSet.read_MNIST("/home/filip/Public/machine-learning-from-scratch/digit-classifier/dataset/train-labels.idx1-ubyte");     // read labels
 
     NNetwork DigitClassifier({image_width * image_height, 16, 16, output_size});
     DigitClassifier.load_training_set(&TrainingSet);
