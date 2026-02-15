@@ -18,5 +18,5 @@ digit-classifier/parameters/*
 *.jpg
 *.jpeg
 
-# rust 
-**/target/
+# genetic-network
+genetic-network/target*
